@@ -1508,15 +1508,23 @@ function showIntroAnimation(callback) {
   const intro  = document.getElementById('intro-screen');
   const textEl = document.getElementById('intro-text');
   intro.classList.remove('hidden');
-  intro.style.opacity = '1';
 
   let cancelled = false;
+
+  // Delay adding the click listener so that a ghost tap (mobile) or the
+  // original click event cannot immediately cancel the animation.
+  let clickListenerAdded = false;
+  const clickDelayTimer = setTimeout(() => {
+    clickListenerAdded = true;
+    intro.addEventListener('click', onSkip);
+  }, 300);
 
   function finish() {
     if (cancelled) return;
     cancelled = true;
+    clearTimeout(clickDelayTimer);
     document.removeEventListener('keydown', onSkip);
-    intro.removeEventListener('click', onSkip);
+    if (clickListenerAdded) intro.removeEventListener('click', onSkip);
     intro.style.transition = 'opacity 0.45s ease';
     intro.style.opacity    = '0';
     setTimeout(() => {
@@ -1529,9 +1537,11 @@ function showIntroAnimation(callback) {
     }, 460);
   }
 
-  function onSkip() { finish(); }
+  // Ignore key-repeat events (holding Enter/Space to activate START would
+  // otherwise fire repeated keydown events that skip the animation).
+  // Click events never have e.repeat, so they always pass through.
+  function onSkip(e) { if (e && e.repeat) return; finish(); }
   document.addEventListener('keydown', onSkip);
-  intro.addEventListener('click', onSkip);
 
   // Scenes: each slide in the story arc
   // phase  0 = neutral, 1 = reality, 2 = dream, 3 = final
@@ -1626,10 +1636,12 @@ function showIntroAnimation(callback) {
 
     if (scene.onEnter) scene.onEnter();
 
-    // Fade in
-    requestAnimationFrame(() => requestAnimationFrame(() => {
+    // Fade in — force a reflow so the browser computes the initial opacity:0
+    // state before adding .visible, ensuring the CSS transition fires.
+    requestAnimationFrame(() => {
+      lineEls.forEach(el => void el.offsetWidth);
       lineEls.forEach(el => el.classList.add('visible'));
-    }));
+    });
 
     // Hold → fade out → next scene
     setTimeout(() => {
