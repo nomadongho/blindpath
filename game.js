@@ -41,6 +41,30 @@ let currentLevelIndex = 0;
 let deaths = 0;
 let gamePhase = 1;   // 1 = Reality, 2 = Dream Phase 1, 3 = Dream Phase 2
 
+/* ── 2b. PROGRESS PERSISTENCE ───────────────────────────────────────── */
+const SAVE_KEY = 'blindpath_progress';
+
+function saveProgress() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      phase: gamePhase,
+      levelIndex: currentLevelIndex,
+      deaths: deaths,
+    }));
+  } catch (_) {}
+}
+
+function loadProgress() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) { return null; }
+}
+
+function clearProgress() {
+  try { localStorage.removeItem(SAVE_KEY); } catch (_) {}
+}
+
 /* ── 2a. PHASE NAMES ─────────────────────────────────────────────────── */
 const DREAM_NAMES_2 = [
   'falling again',    'the same ground',   'familiar stranger',
@@ -80,6 +104,7 @@ const endDeathsEl  = document.getElementById('end-deaths');
 const touchLeft    = document.getElementById('touch-left');
 const touchRight   = document.getElementById('touch-right');
 const touchJump    = document.getElementById('touch-jump');
+const continueBtn  = document.getElementById('continue-btn');
 
 /* ── 4. INPUT ────────────────────────────────────────────────────────── */
 const keys = { left: false, right: false, jump: false };
@@ -1336,6 +1361,8 @@ function loadLevel(index) {
   currentLevel = LEVELS[index]();
   applyPhaseModifiers(currentLevel, gamePhase);
 
+  saveProgress();
+
   resizeViewport();
   buildDOM();
 
@@ -1362,6 +1389,7 @@ function loadLevel(index) {
 }
 
 function startGame() {
+  clearProgress();
   deaths = 0;
   currentLevelIndex = 0;
   gamePhase = 1;
@@ -1465,6 +1493,28 @@ document.getElementById('start-btn').addEventListener('click', () => {
   startGame();
 });
 
+continueBtn.addEventListener('click', () => {
+  try { getAudioCtx(); } catch (_) {}
+  const saved = loadProgress();
+  if (!saved) { startGame(); return; }
+  gamePhase        = saved.phase;
+  currentLevelIndex = saved.levelIndex;
+  deaths           = saved.deaths;
+  deathCountEl.textContent = deaths;
+  document.body.classList.remove('phase-2', 'phase-3');
+  gameViewport.classList.remove('dream-1', 'dream-2');
+  if (gamePhase === 2) {
+    document.body.classList.add('phase-2');
+    gameViewport.classList.add('dream-1');
+  } else if (gamePhase === 3) {
+    document.body.classList.add('phase-3');
+    gameViewport.classList.add('dream-2');
+  }
+  titleScreen.classList.add('hidden');
+  gameWrapper.classList.remove('hidden');
+  loadLevel(currentLevelIndex);
+});
+
 document.getElementById('restart-btn').addEventListener('click', () => {
   endScreen.classList.add('hidden');
   startGame();
@@ -1478,3 +1528,11 @@ document.getElementById('true-restart-btn').addEventListener('click', () => {
   document.getElementById('true-end-screen').classList.add('hidden');
   startGame();
 });
+
+/* Show CONTINUE button on title screen if saved progress exists */
+(function initTitleScreen() {
+  const saved = loadProgress();
+  if (saved) {
+    continueBtn.classList.remove('hidden');
+  }
+}());

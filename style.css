@@ -61,7 +61,8 @@ html, body {
 }
 
 #start-btn,
-#restart-btn {
+#restart-btn,
+#continue-btn {
   margin-top: 8px;
   padding: 10px 40px;
   background: transparent;
@@ -79,7 +80,9 @@ html, body {
 #start-btn:hover,
 #start-btn:focus,
 #restart-btn:hover,
-#restart-btn:focus {
+#restart-btn:focus,
+#continue-btn:hover,
+#continue-btn:focus {
   background: #6a5f40;
   color: #0a0a0f;
   border-color: #c8b870;
