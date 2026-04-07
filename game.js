@@ -1,57 +1,44 @@
 /* =====================================================================
-   BLINDPATH — game.js
+   BLINDPATH — game.js  (30-level edition)
    A mysterious precision platformer. Learn by falling.
    ===================================================================== */
 
 /* ── 1. CONFIGURATION / CONSTANTS ───────────────────────────────────── */
 const CFG = {
-  // Physics
-  GRAVITY:          0.60,
-  JUMP_FORCE:      -13.0,
-  JUMP_CUT:         0.38,   // velocity multiplier on jump release (lower = shorter short-hop)
-  MOVE_ACCEL:       2.2,
-  MOVE_MAX:         4.5,
-  FRICTION:         0.70,   // deceleration on ground (lower = stops faster / tighter)
-  AIR_FRICTION:     0.88,
-  FALL_GRAV_MULT:   0.55,   // extra gravity fraction applied while airborne and falling (vy > 0); makes descent faster than ascent
-
-  // Timing (frames)
-  COYOTE_FRAMES:  7,
-  JUMP_BUFFER:    10,
-
-  // Display
-  TILE_W:         32,
-  TILE_H:         16,
-  PLAYER_W:       14,
-  PLAYER_H:       22,
-
-  // Camera
-  CAM_LERP:       0.12,
-  CAM_OFFSET_X:   0.38,  // player sits at 38% from left edge
-
-  // Traps
-  CRUMBLE_WARN:   30,   // frames of shaking before gone
-  CRUMBLE_GONE:   180,  // frames before respawn
-  FAKE_DELAY:     4,    // frames before fake tile disappears
-  REVEAL_STILL:   60,   // frames standing still before reveal tile shows
-  FALSE_SAFE_TTL: 200,  // frames before false-safe becomes dangerous
-  FALSE_SAFE_WARN: 100, // frames before warming hint appears (halfway point)
-  FALSE_SAFE_GRACE: 30, // frames between danger warning and actual kill
-  TRIGGER_DIST:   40,   // pixels from trigger zone to activate triggered tile
-  REVEAL_RADIUS:  120,  // px proximity for standing-still reveal trigger
-  GHOST_RADIUS:    96,  // px proximity before trigger bridge ghost appears
-
-  // Respawn
-  RESPAWN_DELAY:  22,   // ~0.37s at 60fps
-
-  // Audio
-  MASTER_VOL:     0.18,
+  GRAVITY:           0.60,
+  JUMP_FORCE:       -13.0,
+  JUMP_CUT:          0.38,
+  MOVE_ACCEL:        2.2,
+  MOVE_MAX:          4.5,
+  FRICTION:          0.70,
+  AIR_FRICTION:      0.88,
+  FALL_GRAV_MULT:    0.55,
+  COYOTE_FRAMES:   7,
+  JUMP_BUFFER:     10,
+  TILE_W:          32,
+  TILE_H:          16,
+  PLAYER_W:        14,
+  PLAYER_H:        22,
+  CAM_LERP:        0.12,
+  CAM_OFFSET_X:    0.38,
+  CRUMBLE_WARN:    30,
+  CRUMBLE_GONE:    180,
+  FAKE_DELAY:      4,
+  REVEAL_STILL:    60,
+  FALSE_SAFE_TTL:  240,  // frames standing on false-safe tile before it turns lethal
+  FALSE_SAFE_WARN: 120,  // frames before warming hint appears (halfway point)
+  FALSE_SAFE_GRACE: 30,
+  GHOST_RADIUS:    96,
+  PATIENCE_FRAMES: 60,   // frames player must stand still before a patience trigger activates
+  RESPAWN_DELAY:   22,
+  MASTER_VOL:      0.18,
 };
 
 /* ── 2. STATE ────────────────────────────────────────────────────────── */
-let state = {};          // game state, reset on restart
-let currentLevel = null; // active level data
-let deaths = 0;          // persists across level restarts
+let state = {};
+let currentLevel = null;
+let currentLevelIndex = 0;
+let deaths = 0;
 
 /* ── 3. DOM REFERENCES ───────────────────────────────────────────────── */
 const titleScreen  = document.getElementById('title-screen');
@@ -68,314 +55,697 @@ const touchRight   = document.getElementById('touch-right');
 const touchJump    = document.getElementById('touch-jump');
 
 /* ── 4. INPUT ────────────────────────────────────────────────────────── */
-const keys = {
-  left: false, right: false, jump: false,
-  jumpDown: false,   // true only the first frame jump is pressed
-  jumpUp:   false,   // true only the first frame jump is released
-};
+const keys = { left: false, right: false, jump: false };
 let _jumpWasDown = false;
 
 document.addEventListener('keydown', e => {
   if (e.repeat) return;
   if (e.code === 'ArrowLeft'  || e.code === 'KeyA') keys.left  = true;
   if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
-  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
-    keys.jump = true;
-  }
+  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') keys.jump = true;
 });
-
 document.addEventListener('keyup', e => {
   if (e.code === 'ArrowLeft'  || e.code === 'KeyA') keys.left  = false;
   if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
-  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
-    keys.jump = false;
-  }
+  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') keys.jump = false;
 });
 
-// Touch controls
 function bindTouch(el, flag) {
   el.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    el.setPointerCapture(e.pointerId);
-    el.classList.add('pressed');
-    keys[flag] = true;
+    e.preventDefault(); el.setPointerCapture(e.pointerId);
+    el.classList.add('pressed'); keys[flag] = true;
   });
-  const release = e => {
-    e.preventDefault();
-    el.classList.remove('pressed');
-    keys[flag] = false;
-  };
+  const release = e => { e.preventDefault(); el.classList.remove('pressed'); keys[flag] = false; };
   el.addEventListener('pointerup',     release);
   el.addEventListener('pointercancel', release);
 }
-
 bindTouch(touchLeft,  'left');
 bindTouch(touchRight, 'right');
 bindTouch(touchJump,  'jump');
 
 /* ── 5. AUDIO ────────────────────────────────────────────────────────── */
 let audioCtx = null;
-
 function getAudioCtx() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   return audioCtx;
 }
-
 function playTone(freq, type, duration, gain, when) {
   try {
     const ctx = getAudioCtx();
     const t   = when || ctx.currentTime;
     const osc = ctx.createOscillator();
     const vol = ctx.createGain();
-    osc.connect(vol);
-    vol.connect(ctx.destination);
-    osc.type      = type || 'square';
+    osc.connect(vol); vol.connect(ctx.destination);
+    osc.type = type || 'square';
     osc.frequency.setValueAtTime(freq, t);
     vol.gain.setValueAtTime(gain * CFG.MASTER_VOL, t);
     vol.gain.exponentialRampToValueAtTime(0.0001, t + duration);
-    osc.start(t);
-    osc.stop(t + duration);
-  } catch (_) { /* audio blocked — silently ignore */ }
+    osc.start(t); osc.stop(t + duration);
+  } catch (_) {}
+}
+function sfxJump()  { playTone(340,'square',0.12,0.7); playTone(480,'square',0.07,0.4); }
+function sfxLand()  { playTone(120,'square',0.08,0.6); }
+function sfxDeath() {
+  const t = (audioCtx||{currentTime:0}).currentTime;
+  playTone(220,'sawtooth',0.10,0.9);
+  playTone(160,'sawtooth',0.18,0.8, t+0.07);
+  playTone(100,'sawtooth',0.25,0.7, t+0.14);
+}
+function sfxReveal(){ playTone(600,'sine',0.09,0.3); }
+function sfxGoal()  {
+  const t = (audioCtx||{currentTime:0}).currentTime;
+  playTone(440,'sine',0.15,0.6);
+  playTone(550,'sine',0.15,0.5, t+0.12);
+  playTone(660,'sine',0.22,0.7, t+0.24);
 }
 
-function sfxJump()   { playTone(340, 'square',   0.12, 0.7); playTone(480, 'square', 0.07, 0.4); }
-function sfxLand()   { playTone(120, 'square',   0.08, 0.6); }
-function sfxDeath()  {
-  playTone(220, 'sawtooth', 0.10, 0.9);
-  playTone(160, 'sawtooth', 0.18, 0.8, (audioCtx || { currentTime: 0 }).currentTime + 0.07);
-  playTone(100, 'sawtooth', 0.25, 0.7, (audioCtx || { currentTime: 0 }).currentTime + 0.14);
-}
-function sfxReveal() { playTone(600, 'sine', 0.09, 0.3); }
-function sfxGoal()   {
-  playTone(440, 'sine', 0.15, 0.6);
-  playTone(550, 'sine', 0.15, 0.5, (audioCtx || { currentTime: 0 }).currentTime + 0.12);
-  playTone(660, 'sine', 0.22, 0.7, (audioCtx || { currentTime: 0 }).currentTime + 0.24);
-}
-
-/* ── 6. LEVEL DATA ───────────────────────────────────────────────────── */
+/* ── 6. LEVEL BUILDER HELPERS ────────────────────────────────────────── */
 /*
   Tile types:
-    S  = solid
-    F  = fake floor (falls through after contact)
-    I  = invisible bridge (solid but invisible)
-    C  = crumble (delayed crumble)
-    R  = reveal (appears after standing still)
-    Z  = false safe zone (becomes dangerous)
-    T  = triggered tile (needs nearby activation)
-    G  = goal / exit
-    _  = empty / void (background)
-    X  = spike (hazard)
+    solid      – permanent safe ground
+    fake       – dissolves on landing (same visual as solid)
+    invisible  – solid but invisible
+    crumble    – shakes then falls; light:true = lighter colour;
+                 warnFrames overrides CFG.CRUMBLE_WARN;
+                 instantCrumble:true vanishes on first contact;
+                 reveal:true = hidden until player stands still
+    reveal     – appears after player stands still (purely visual type)
+    false-safe – becomes lethal after timer; fastTTL/fastWarn override defaults
+    trigger    – appears when trigger zone activates
+    trap       – looks solid (dark), kills instantly on landing
+    goal       – exit portal
 
-  Each tile row describes a horizontal strip.
-  levelW and levelH define world pixel dimensions.
+  Level object:
+    { name, worldW, worldH, spawnX, spawnY, darkMode,
+      tiles[], spikes[], triggers[], gravityZones[], dangerZones[] }
 
-  spawnX, spawnY  — player start position in pixels
-  tiles[]         — array of { type, col, row } or { type, x, y, w, h }
-  triggers[]      — { x, y, r, targetId } activation zones for T-tiles
+  Trigger zone: { id, x, y, w, h, minStillFrames, glow }
+  Danger zone:  { x, y, w, h, glow }  — feet contact = instant death
+  Gravity zone: { x, y, w, h, gravMult, jumpMult }
 */
 
-const LEVEL_1 = {
-  name: 'Stage I  ·  The Blind Path',
-  spawnX: 60,
-  spawnY: 340,
+function makeLevelParts() {
+  const tiles = [], spikes = [], triggers = [], gravityZones = [], dangerZones = [];
+  const T = CFG.TILE_W, H = CFG.TILE_H;
 
-  /* World size in pixels */
-  worldW: 3200,
-  worldH: 480,
+  /* tile shortcuts */
+  const S  = (x,y,w,h)       => tiles.push({type:'solid',      x,y,w:w||T,h:h||H,id:tiles.length});
+  const F  = (x,y,w,h)       => tiles.push({type:'fake',       x,y,w:w||T,h:h||H,id:tiles.length});
+  const I  = (x,y,w,h)       => tiles.push({type:'invisible',  x,y,w:w||T,h:h||H,id:tiles.length});
+  const C  = (x,y,w,h,light) => tiles.push({type:'crumble',    x,y,w:w||T,h:h||H,id:tiles.length,state:'idle',timer:0,light:!!light});
+  const R  = (x,y,w,h)       => tiles.push({type:'reveal',     x,y,w:w||T,h:h||H,id:tiles.length,visible:false});
+  const Z  = (x,y,w,h)       => tiles.push({type:'false-safe', x,y,w:w||T,h:h||H,id:tiles.length,timer:0,dangerous:false,dangerTimer:0,_warming:false});
+  const TR = (x,y,w,h,tId)   => tiles.push({type:'trigger',    x,y,w:w||T,h:h||H,id:tiles.length,trigId:tId,active:false});
+  const TP = (x,y,w,h)       => tiles.push({type:'trap',       x,y,w:w||T,h:h||H,id:tiles.length});
+  const SL = (x,y,w,h)       => tiles.push({type:'solid',      x,y,w:w||T,h:h||H,id:tiles.length,light:true});
+  const G  = (x,y,w,h)       => tiles.push({type:'goal',       x,y,w:w||T,h:h||H,id:tiles.length});
 
-  /*
-   * Tiles are described as objects with pixel coordinates.
-   * w defaults to CFG.TILE_W (32), h defaults to CFG.TILE_H (16).
-   */
-  tiles: buildLevel1Tiles(),
-};
+  const spike = (x,y,n) => { for(let i=0;i<n;i++) spikes.push({x:x+i*16,y,w:16,h:10}); };
 
-function buildLevel1Tiles() {
-  const T  = CFG.TILE_W;  // 32  – tile width
-  const H  = CFG.TILE_H;  // 16  – tile height
-  const tiles = [];
+  /* trigger zone helper */
+  const trig = (id,x,y,w,h,minStill,glow) =>
+    triggers.push({id,x,y,w:w||48,h:h||80,minStillFrames:minStill||0,glow:!!glow});
 
-  // ── Helper shortcuts ──────────────────────────────────────────────
-  function solid(x, y, w, h) {
-    tiles.push({ type: 'solid', x, y, w: w || T, h: h || H, id: tiles.length });
-  }
-  function fake(x, y, w, h) {
-    tiles.push({ type: 'fake', x, y, w: w || T, h: h || H, id: tiles.length });
-  }
-  function invisible(x, y, w, h) {
-    tiles.push({ type: 'invisible', x, y, w: w || T, h: h || H, id: tiles.length });
-  }
-  function crumble(x, y, w, h) {
-    tiles.push({ type: 'crumble', x, y, w: w || T, h: h || H, id: tiles.length,
-                 state: 'idle', timer: 0 });
-  }
-  function reveal(x, y, w, h) {
-    tiles.push({ type: 'reveal', x, y, w: w || T, h: h || H, id: tiles.length,
-                 visible: false, timer: 0 });
-  }
-  function falseSafe(x, y, w, h) {
-    tiles.push({ type: 'false-safe', x, y, w: w || T, h: h || H, id: tiles.length,
-                 timer: 0, dangerous: false, dangerTimer: 0, _warming: false });
-  }
-  function triggered(x, y, w, h, trigId) {
-    tiles.push({ type: 'trigger', x, y, w: w || T, h: h || H, id: tiles.length,
-                 trigId, active: false });
-  }
-  function goal(x, y, w, h) {
-    tiles.push({ type: 'goal', x, y, w: w || T, h: h || H, id: tiles.length });
-  }
+  /* gravity zone helper */
+  const grav = (x,y,w,h,gm,jm) =>
+    gravityZones.push({x,y,w,h,gravMult:gm,jumpMult:jm!==undefined?jm:1});
 
-  // ── ZONE 1 – Safe introduction (x: 40–400) ────────────────────────
-  // Ground floor
-  solid( 40, 380, 340, H);   // start platform
-  // A few steps going up, all normal and solid — teaches basic movement
-  solid(400, 360, T, H);
-  solid(440, 340, T, H);
-  solid(480, 320, T, H);
-  // Continue stepping down
-  solid(540, 340, T, H);
-  solid(580, 360, T, H);
-  solid(620, 380, 100, H);
+  /* danger zone helper (feet contact = death) */
+  const dzone = (x,y,w,h,glow) => dangerZones.push({x,y,w,h,glow:!!glow});
 
-  // ── ZONE 2 – First betrayal: fake floor (x: 720–900) ──────────────
-  // A visual "safe" looking wide floor — it's fake!
-  fake(720, 380, 160, H);    // looks solid, falls through into spikes
-  // The real path: a single invisible bridge one step above the fake floor.
-  // Player must jump from the previous solid platform to discover it.
-  // Once standing on "nothing" at y=364, the aha moment clicks.
-  // Width = fake floor width (160) + 64 px of overhang to reach the Zone-3 solid.
-  invisible(720, 364, 160 + 64, H); // spans the full fake section at one tile-height above
-  solid(900, 380, T, H);     // visible safe beacon on the far side
-
-  // ── ZONE 3 – Rising platforms + crumble mix (x: 940–1200) ─────────
-  // First solid placed at y=364 to match invisible bridge height so the
-  // transition from Zone 2 is geometrically seamless (no X-axis blocking).
-  // x=944 aligns exactly with the invisible bridge end (720 + 224) so the
-  // player steps off the bridge directly onto this platform.
-  solid(944, 364, T, H);
-  crumble(980, 340, T, H);   // crumble mid-air step
-  solid(1020, 320, T, H);
-  crumble(1060, 320, T, H);  // back-to-back crumble
-  crumble(1100, 320, T, H);
-  solid(1140, 320, T, H);
-  solid(1180, 340, T, H);
-  solid(1220, 360, T, H);
-  solid(1260, 380, 60, H);
-
-  // ── ZONE 4 – Movement-reveal section (x: 1340–1580) ───────────────
-  // Gap — player must stand still on the edge to reveal the hidden path
-  solid(1340, 380, T, H);    // edge platform — stand here to reveal
-  // Reveal tiles appear when player stands still
-  reveal(1380, 380, T, H);
-  reveal(1412, 380, T, H);
-  reveal(1444, 380, T, H);
-  reveal(1476, 380, T, H);
-  reveal(1508, 380, T, H);
-  solid(1540, 380, T, H);    // visible safe landing
-
-  // ── ZONE 5 – False safe zone + spike pit (x: 1580–1820) ───────────
-  solid(1580, 380, T, H);
-  falseSafe(1620, 380, 96, H);  // looks safe, becomes lethal
-  solid(1730, 380, T, H);
-  // Spike pit beneath false-safe zone (dead if you fall)
-  // (spikes defined separately below)
-
-  // ── ZONE 6 – Reverse expectation (x: 1830–2200) ───────────────────
-  // Visible platforms are FAKE — invisible ones are REAL.
-  // After zone 2 taught that invisible=real, this reinforces it.
-  // Invisible staircase starts only 16 px below floor level (y=396) so
-  // the catch is shallow and discoverable without a death-by-gap.
-  fake(1830, 380, T, H);     // looks solid — trap!
-  fake(1870, 360, T, H);
-  fake(1910, 340, T, H);
-  // The real invisible staircase (starts just below floor, then ascends)
-  invisible(1830, 396, T, H);
-  invisible(1875, 380, T, H);
-  invisible(1920, 364, T, H);
-  invisible(1965, 348, T, H);
-  solid(2010, 336, T, H);     // solid landing visible — safe reward
-
-  solid(2050, 336, T, H);
-  solid(2090, 356, T, H);
-  solid(2130, 376, T, H);
-  solid(2170, 396, 80, H);
-
-  // ── ZONE 7 – Triggered path (x: 2260–2520) ────────────────────────
-  // Approaching the gap activates the hidden bridge.
-  // As the player nears, a ghost silhouette of the bridge fades in,
-  // hinting that proximity matters — solidifies on contact with the zone.
-  solid(2260, 396, T, H);    // approach platform
-  // Trigger zone: entering near x=2268 activates the bridge
-  triggered(2300, 396, T, H,  'T1');
-  triggered(2332, 396, T, H,  'T1');
-  triggered(2364, 396, T, H,  'T1');
-  triggered(2396, 396, T, H,  'T1');
-  solid(2428, 396, T, H);    // safe landing
-  solid(2470, 396, 80, H);
-
-  // ── ZONE 8 – Final gauntlet: crumble + fake mix (x: 2570–2900) ────
-  // All tiles at the same height (y=380) — the challenge is now purely
-  // about remembering WHICH type each tile is, not WHERE to go.
-  // Order tests all three learned rules: crumble → fake → crumble → solid
-  // → crumble → crumble → invisible → solid descent.
-  crumble(2570, 380, T, H);
-  fake(2610, 380, T, H);
-  crumble(2650, 380, T, H);
-  solid(2690, 380, T, H);    // reward — solid rest
-  crumble(2730, 380, T, H);
-  crumble(2770, 380, T, H);
-  invisible(2810, 380, T, H); // one last invisible step
-  solid(2850, 380, T, H);
-  solid(2890, 380, T, H);
-  solid(2930, 380, 100, H);
-
-  // ── GOAL (x: 3050) ────────────────────────────────────────────────
-  solid(3040, 380, 100, H);
-  goal(3060, 352, T, 28);   // exit portal
-
-  return tiles;
+  return { tiles,spikes,triggers,gravityZones,dangerZones,
+           S,F,I,C,R,Z,TR,TP,SL,G,spike,trig,grav,dzone };
 }
 
-/* Spikes and hazard definitions for level 1 */
-const LEVEL_1_SPIKES = buildLevel1Spikes();
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 1 — INTRODUCTION (Levels 1–5)
+   One trap at a time. Build baseline trust.
+   ═══════════════════════════════════════════════════════════════════════ */
 
-function buildLevel1Spikes() {
-  const spikes = [];
-  function spike(x, y, count) {
-    for (let i = 0; i < count; i++) {
-      spikes.push({ x: x + i * 16, y, w: 16, h: 10 });
-    }
-  }
-
-  // Pit under fake floor (zone 2)
-  spike(720, 400, 10);
-
-  // False safe zone pit (zone 5)
-  spike(1620, 400, 6);
-
-  // Pit under zone 6 fake path (raised to match shallower invisible catch)
-  spike(1830, 416, 10);
-
-  // Pit under triggered path approach
-  spike(2300, 416, 8);
-
-  // Final gauntlet pit (moved 4 px down so spike tips clear platform bottoms)
-  spike(2570, 400, 14);
-
-  return spikes;
+// ── Level 1 "One Step" — flat corridor, no traps. Learn controls & exit.
+function buildLevel1() {
+  const {S,G,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 680, 16);
+  G(668, 372, 32, 28);
+  return {name:'01 · One Step', worldW:800, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-/* Trigger zones for level 1 */
-const LEVEL_1_TRIGGERS = [
-  /* id, rect to detect player inside, activates tiles with matching trigId */
-  { id: 'T1', x: 2268, y: 340, w: 48, h: 80 },
+// ── Level 2 "The Gap" — visible spike pit; must jump to cross.
+function buildLevel2() {
+  const {S,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40,  400, 220, 16);
+  S(380, 400, 340, 16);
+  G(668, 372, 32, 28);
+  spike(268, 410, 7);
+  return {name:'02 · The Gap', worldW:800, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 3 "First Lie" — one fake tile beside one solid (identical look).
+function buildLevel3() {
+  const {S,F,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 180, 16);
+  S(240, 400);        // solid — safe
+  F(272, 400);        // fake  — identical look
+  S(320, 400, 340, 16);
+  G(618, 372, 32, 28);
+  spike(272, 410, 2);
+  return {name:'03 · First Lie', worldW:740, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 4 "Safe Color" — dark=solid safe; light=crumble dangerous.
+function buildLevel4() {
+  const {S,C,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 100, 16);
+  S(160, 400);
+  C(212, 400, 32, 16, true);
+  S(264, 400);
+  C(316, 400, 32, 16, true);
+  C(348, 400, 32, 16, true);
+  S(400, 400);
+  C(452, 400, 32, 16, true);
+  S(504, 400);
+  C(556, 400, 32, 16, true);
+  S(608, 400);
+  S(660, 400, 180, 16);
+  G(798, 372, 32, 28);
+  spike(140, 410, 34);
+  return {name:'04 · Safe Color', worldW:920, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 5 "Double Cross" — fake-tile bridge over a jumpable pit.
+function buildLevel5() {
+  const {S,F,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 180, 16);
+  F(220, 400); F(252, 400); F(284, 400); F(316, 400); F(348, 400);
+  S(380, 400, 340, 16);
+  G(668, 372, 32, 28);
+  spike(220, 410, 11);
+  return {name:'05 · Double Cross', worldW:800, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 2 — DISCOVERY (Levels 6–10)
+   Break assumptions. Reward curiosity.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+// ── Level 6 "Empty Air" — gap seems impassable; invisible platforms cross it.
+function buildLevel6() {
+  const {S,I,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40,  400, 160, 16);
+  I(280, 400);
+  I(370, 400);
+  I(460, 400);
+  S(550, 400, 200, 16);
+  G(708, 372, 32, 28);
+  spike(200, 410, 22);
+  return {name:'06 · Empty Air', worldW:860, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 7 "Patient Ground" — crumble + solid mix; keep moving.
+function buildLevel7() {
+  const {S,C,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 80, 16);
+  C(160, 380); C(200, 360);
+  S(240, 340);
+  C(280, 340); C(320, 340);
+  S(360, 340);
+  C(400, 340); C(440, 340); C(480, 340);
+  S(520, 340);
+  S(560, 360); S(600, 380); S(640, 400, 200, 16);
+  G(798, 372, 32, 28);
+  spike(120, 420, 34);
+  return {name:'07 · Patient Ground', worldW:920, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 8 "Friendly Fire" — open platform; edge danger zones are invisible.
+function buildLevel8() {
+  const {S,G,dzone,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40,  400, 80,  16);
+  S(180, 400, 440, 16);
+  S(680, 400, 80,  16);
+  G(710, 372, 32, 28);
+  dzone(180, 368, 52, 48);     // left-edge death strip
+  dzone(568, 368, 52, 48);     // right-edge death strip
+  spike(120, 410, 4);
+  spike(640, 410, 4);
+  return {name:'08 · Friendly Fire', worldW:820, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 9 "The False Bottom" — shaft: fake floor at bottom, invisible mid-platform.
+function buildLevel9() {
+  const {S,F,I,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40,  100, 200, 16);
+  S(40,  116, 16,  400);    // left wall
+  S(208, 116, 16,  400);    // right wall
+  I(56,  280, 152, 16);     // invisible mid-shaft landing (the real safe spot)
+  S(224, 280, 200, 16);
+  F(56,  500, 152, 16);     // fake floor at the very bottom
+  spike(56, 516, 9);
+  S(424, 280, 160, 16);
+  G(544, 252, 32, 28);
+  return {name:'09 · The False Bottom', worldW:680, worldH:580, spawnX:80, spawnY:78,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 10 "Unstable Trust" — dark tiles now crumble slowly; rules changed.
+function buildLevel10() {
+  const {S,C,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 80, 16);
+  const sc = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
+                                   id:tiles.length,state:'idle',timer:0,warnFrames:90});
+  sc(160,400); sc(210,400); sc(262,400);
+  C(314,400);
+  sc(366,400); sc(418,400);
+  C(470,400);
+  sc(522,400); sc(574,400);
+  S(630, 400, 200, 16);
+  G(788, 372, 32, 28);
+  spike(140, 410, 32);
+  return {name:'10 · Unstable Trust', worldW:920, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 3 — REINFORCEMENT (Levels 11–15)
+   Combine mechanics. Demand memory and timing.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+// ── Level 11 "The Trigger" — enter zone → bridge materialises; sprint across.
+function buildLevel11() {
+  const {S,TR,G,trig,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 160, 16);
+  trig('B1', 130, 330, 70, 90);
+  TR(240, 400, 32, 16, 'B1');
+  TR(272, 400, 32, 16, 'B1');
+  TR(304, 400, 32, 16, 'B1');
+  TR(336, 400, 32, 16, 'B1');
+  S(370, 400, 300, 16);
+  G(628, 372, 32, 28);
+  spike(200, 410, 10);
+  return {name:'11 · The Trigger', worldW:760, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 12 "Still Waters" — stand completely still; path glows into view.
+function buildLevel12() {
+  const {S,R,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 80, 16);
+  R(170, 400); R(210, 400); R(250, 400); R(290, 400); R(330, 400);
+  S(370, 400, 300, 16);
+  G(628, 372, 32, 28);
+  spike(120, 410, 16);
+  return {name:'12 · Still Waters', worldW:760, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 13 "Cascade" — trigger→crumble chain; plan full sequence before moving.
+function buildLevel13() {
+  const {S,C,TR,G,trig,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 120, 16);
+  trig('PA', 110, 330, 70, 90);
+  TR(220, 400, 32, 16, 'PA');
+  C(260, 400); C(300, 400);
+  S(340, 400);
+  C(380, 400); C(420, 400);
+  S(460, 400, 80, 16);
+  trig('PB', 470, 330, 70, 90);
+  TR(580, 400, 32, 16, 'PB');
+  C(620, 400); C(660, 400);
+  S(700, 400, 160, 16);
+  G(818, 372, 32, 28);
+  spike(160, 410, 35);
+  return {name:'13 · Cascade', worldW:940, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 14 "Memory Pit" — two fake, one solid; deaths map the safe tile.
+function buildLevel14() {
+  const {S,F,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 120, 16);
+  F(200, 400);
+  S(240, 400);
+  F(280, 400);
+  S(340, 400, 80, 16);
+  F(470, 400); F(510, 400);
+  S(550, 400);
+  S(600, 400, 160, 16);
+  G(718, 372, 32, 28);
+  spike(160, 410, 28);
+  return {name:'14 · Memory Pit', worldW:840, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 15 "The Patience Tax" — reveal-crumble hybrids; act instantly after reveal.
+function buildLevel15() {
+  const {S,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 80, 16);
+  const RC = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
+                                   id:tiles.length,state:'idle',timer:0,
+                                   reveal:true,visible:false});
+  RC(170,400); RC(210,400); RC(250,400); RC(290,400); RC(330,400); RC(370,400);
+  S(410, 400, 80, 16);
+  RC(540,400); RC(580,400); RC(620,400);
+  S(660, 400, 160, 16);
+  G(778, 372, 32, 28);
+  spike(120, 410, 36);
+  return {name:'15 · The Patience Tax', worldW:920, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 4 — SUBVERSION (Levels 16–20)
+   Break learned rules. Reverse expectations.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+// ── Level 16 "The Betrayal" — looks like L2 but the bridge is entirely fake.
+function buildLevel16() {
+  const {S,F,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 220, 16);
+  F(268, 400); F(300, 400); F(332, 400); F(364, 400);
+  S(396, 400, 340, 16);
+  G(694, 372, 32, 28);
+  spike(260, 410, 9);
+  return {name:'16 · The Betrayal', worldW:820, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 17 "Dark Side" — rules inverted: light=safe; dark=trap/kill.
+function buildLevel17() {
+  const {S,SL,TP,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 80, 16);
+  TP(160, 400);
+  SL(210, 400);
+  TP(262, 400); TP(294, 400);
+  SL(346, 400);
+  TP(398, 400);
+  SL(450, 400); SL(482, 400);
+  TP(534, 400);
+  SL(586, 400);
+  S(640, 400, 180, 16);
+  G(778, 372, 32, 28);
+  spike(140, 410, 33);
+  return {name:'17 · Dark Side', worldW:920, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 18 "Gravity Drift" — gravity doubles halfway; jump arc shrinks.
+function buildLevel18() {
+  const {S,G,grav,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 160, 16);
+  S(220, 380); S(270, 360); S(320, 340);
+  grav(360, 0, 500, 480, 2.0, 0.68);
+  S(380, 340); S(420, 340); S(460, 340);
+  S(500, 360); S(540, 380); S(580, 400, 240, 16);
+  G(778, 372, 32, 28);
+  spike(160, 420, 28);
+  return {name:'18 · Gravity Drift', worldW:920, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 19 "Safe No More" — glowing zone looks like L11's trigger but kills.
+//    Real elevated platform is above/beyond it — jump over, not into.
+function buildLevel19() {
+  const {S,G,dzone,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 160, 16);
+  dzone(240, 383, 48, 33, true);     // glow:true — identical look to L11 trigger
+  S(320, 352, 200, 16);              // elevated real path above the danger zone
+  S(560, 400, 200, 16);
+  G(718, 372, 32, 28);
+  spike(200, 420, 9);
+  return {name:'19 · Safe No More', worldW:840, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 20 "Double Fake" — visible upper tiles fake; invisible lower ones real.
+function buildLevel20() {
+  const {S,F,I,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 140, 16);
+  F(220, 400); F(260, 400); F(300, 400); F(340, 400);
+  I(220, 424); I(260, 424); I(300, 424); I(340, 424);
+  S(380, 424, 40, 16);
+  S(420, 408, 80, 16);
+  F(560, 400); F(600, 400); F(640, 400);
+  I(560, 424); I(600, 424); I(640, 424);
+  S(680, 400, 160, 16);
+  G(798, 372, 32, 28);
+  spike(180, 456, 33);
+  return {name:'20 · Double Fake', worldW:920, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 5 — MASTERY (Levels 21–30)
+   Everything at once. Fast adaptation. Earned difficulty.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+// ── Level 21 "Chain Reaction" — trigger+crumble sprint+gravity zone in sequence.
+function buildLevel21() {
+  const {S,C,TR,G,trig,grav,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 100, 16);
+  trig('Q1', 100, 330, 60, 90);
+  TR(180,400,32,16,'Q1'); TR(212,400,32,16,'Q1');
+  C(252,400); C(292,400); C(332,400); S(372,400);
+  C(412,400); C(452,400); S(492,400);
+  grav(540, 0, 600, 480, 1.8, 0.70);
+  S(540,400); S(580,380); S(620,360); S(660,360);
+  C(700,360); C(740,360);
+  S(780,360,160,16);
+  G(898,332,32,28);
+  spike(160,410,25);
+  spike(540,420,15);
+  return {name:'21 · Chain Reaction', worldW:1040, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 22 "The Hesitation Path" — patience triggers: wait 1 s on platform → next appears.
+function buildLevel22() {
+  const {S,TR,G,trig,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 80, 16);
+  trig('H1',  60, 358, 60, 62, CFG.PATIENCE_FRAMES);
+  TR(180,400,32,16,'H1');
+  S(220,400,48,16);
+  trig('H2', 228, 358, 48, 62, CFG.PATIENCE_FRAMES);
+  TR(330,400,32,16,'H2');
+  S(370,400,48,16);
+  trig('H3', 378, 358, 48, 62, CFG.PATIENCE_FRAMES);
+  TR(480,400,32,16,'H3');
+  S(520,400,48,16);
+  trig('H4', 528, 358, 48, 62, CFG.PATIENCE_FRAMES);
+  TR(630,400,32,16,'H4');
+  S(670,400,160,16);
+  G(788,372,32,28);
+  spike(120,410,36);
+  return {name:'22 · The Hesitation Path', worldW:920, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 23 "False Memory" — invisible platforms; systematic elimination reveals path.
+function buildLevel23() {
+  const {S,I,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 80, 16);
+  I(180, 400);          // real — slot 1
+                        // slot 2 — gap (death)
+  I(320, 400);          // real — slot 3
+                        // slot 4 — gap
+  I(460, 400);          // real — slot 5
+  S(540, 400, 80, 16);
+                        // slot 1 — gap
+  I(680, 400);          // real — slot 2
+                        // slot 3 — gap
+  I(820, 400);          // real — slot 4
+  S(900, 400, 160, 16);
+  G(1018,372,32,28);
+  spike(120,410,51);
+  return {name:'23 · False Memory', worldW:1140, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 24 "The Mirror" — left half original rules; right half inverted.
+function buildLevel24() {
+  const {S,C,SL,TP,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 80, 16);
+  // Left: dark=safe, light=crumble
+  S(160,400); C(212,400,32,16,true); S(264,400);
+  C(316,400,32,16,true); S(368,400);
+  S(420,400,40,16);     // midpoint divider
+  // Right: light=safe (SL), dark=trap (TP)
+  SL(520,400); TP(572,400); SL(624,400);
+  TP(676,400); TP(708,400); SL(760,400);
+  S(820,400,160,16);
+  G(938,372,32,28);
+  spike(140,410,46);
+  return {name:'24 · The Mirror', worldW:1080, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 25 "Slow Burn" — wide false-safe platform with compressed timer.
+function buildLevel25() {
+  const {S,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 80, 16);
+  tiles.push({type:'false-safe',x:180,y:400,w:480,h:16,id:tiles.length,
+              timer:0,dangerous:false,dangerTimer:0,_warming:false,
+              fastTTL:140, fastWarn:70});
+  S(700, 400, 160, 16);
+  G(818, 372, 32, 28);
+  spike(120, 420, 4);
+  spike(680, 420, 4);
+  return {name:'25 · Slow Burn', worldW:960, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 26 "Trigger Happy" — two identical glowing zones; one dangerous, one trigger.
+function buildLevel26() {
+  const {S,TR,G,trig,dzone,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 160, 16);
+  dzone(240, 378, 48, 38, true);            // left zone — looks like trigger, is deadly
+  trig('K1', 340, 378, 48, 38, 0, true);   // right zone — same glow, actually helpful
+  TR(430,400,32,16,'K1'); TR(462,400,32,16,'K1');
+  TR(494,400,32,16,'K1'); TR(526,400,32,16,'K1');
+  S(560, 400, 200, 16);
+  G(718, 372, 32, 28);
+  spike(200, 420, 23);
+  return {name:'26 · Trigger Happy', worldW:860, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 27 "Ghostwalk" — light gravity, instant-crumble invisible platforms; keep ascending.
+function buildLevel27() {
+  const {S,G,grav,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  grav(0, 0, 480, 760, 0.45, 1.25);
+  S(40, 680, 200, 16);
+  const ic = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
+                                   id:tiles.length,state:'idle',timer:0,instantCrumble:true});
+  ic(80, 600); ic(180, 530); ic(80,  460); ic(200, 400);
+  ic(100,330); ic(220, 270); ic(80,  210);
+  S(60, 150, 200, 16);
+  G(120, 122, 32, 28);
+  spike(40, 700, 12);
+  return {name:'27 · Ghostwalk', worldW:480, worldH:760, spawnX:100, spawnY:658,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 28 "The Patience Gauntlet" — reveal-crumble + patience triggers + more reveal.
+function buildLevel28() {
+  const {S,C,TR,G,trig,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 80, 16);
+  const RC = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
+                                   id:tiles.length,state:'idle',timer:0,reveal:true,visible:false});
+  RC(170,400); RC(210,400); RC(250,400);
+  S(290,400,80,16);
+  trig('G1', 300, 340, 70, 80, CFG.PATIENCE_FRAMES);
+  TR(420,400,32,16,'G1'); C(460,400); C(500,400);
+  TR(540,400,32,16,'G1');
+  S(580,400,80,16);
+  trig('G2', 590, 340, 70, 80, CFG.PATIENCE_FRAMES);
+  RC(710,400); RC(750,400); RC(790,400);
+  S(830,400,160,16);
+  G(950,372,32,28);
+  spike(120,410,50);
+  return {name:'28 · The Patience Gauntlet', worldW:1080, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 29 "Everything You Know" — five compact Phase-4 subversions in sequence.
+function buildLevel29() {
+  const {S,F,I,C,SL,TP,TR,G,trig,grav,dzone,spike,
+         tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+
+  // §1 — fake bridge (L16 echo)
+  S(40,400,120,16);
+  F(200,400); F(232,400); F(264,400);
+  S(320,400,48,16);
+  spike(160,410,11);
+
+  // §2 — inverted colours (L17 echo)
+  TP(420,400); SL(452,400); TP(484,400); SL(516,400);
+  S(568,400,48,16);
+  spike(400,410,11);
+
+  // §3 — glowing danger zone masquerading as trigger (L19 echo)
+  dzone(666,383,48,33,true);
+  S(720,352,80,16);
+  S(820,400,48,16);
+  spike(640,420,7);
+
+  // §4 — double fake / invisible below (L20 echo)
+  F(920,400); F(952,400); F(984,400);
+  I(920,424); I(952,424); I(984,424);
+  S(1016,424,48,16);
+  S(1080,400,48,16);
+  spike(900,456,11);
+
+  // §5 — heavy gravity (L18 echo)
+  grav(1178,0,300,480, 2.0, 0.68);
+  S(1178,400); S(1218,400); S(1258,400);
+  S(1298,400,200,16);
+  G(1456,372,32,28);
+  spike(1178,420,6);
+
+  return {name:'29 · Everything You Know', worldW:1580, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 30 "Blindpath" — complete darkness; pure memory and trust.
+function buildLevel30() {
+  const {S,F,C,I,G,grav,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+
+  S(40,400,80,16);
+
+  // Echo — fake floor
+  F(180,400); F(212,400);
+  S(244,400,80,16);
+
+  // Echo — invisible bridge
+  I(380,400); I(420,400); I(460,400);
+  S(500,400,60,16);
+
+  // Echo — reveal-crumble
+  const RC = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
+                                   id:tiles.length,state:'idle',timer:0,reveal:true,visible:false});
+  RC(620,400); RC(660,400); RC(700,400);
+  S(740,400,60,16);
+
+  S(860,400,60,16);
+
+  // Echo — light gravity ascent
+  grav(980,0,400,480, 0.50, 1.20);
+  I(980,380); I(1040,360); I(1100,340); I(1160,360); I(1220,380);
+  S(1280,400,120,16);
+
+  G(1360,372,32,28);
+
+  spike(160,410,4);
+  spike(340,410,8);
+  spike(560,410,4);
+  spike(800,410,4);
+  spike(920,410,4);
+
+  return {name:'30 · Blindpath', worldW:1520, worldH:480, spawnX:50, spawnY:378,
+          darkMode:true,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+/* ── 7. LEVELS REGISTRY ──────────────────────────────────────────────── */
+const LEVELS = [
+  buildLevel1,  buildLevel2,  buildLevel3,  buildLevel4,  buildLevel5,
+  buildLevel6,  buildLevel7,  buildLevel8,  buildLevel9,  buildLevel10,
+  buildLevel11, buildLevel12, buildLevel13, buildLevel14, buildLevel15,
+  buildLevel16, buildLevel17, buildLevel18, buildLevel19, buildLevel20,
+  buildLevel21, buildLevel22, buildLevel23, buildLevel24, buildLevel25,
+  buildLevel26, buildLevel27, buildLevel28, buildLevel29, buildLevel30,
 ];
 
-/* ── 7. VIEWPORT & CAMERA ────────────────────────────────────────────── */
-let vpW = 0, vpH = 0;   // viewport pixel dimensions
-let camX = 0, camY = 0; // camera top-left world position
+/* ── 8. VIEWPORT & CAMERA ────────────────────────────────────────────── */
+let vpW = 0, vpH = 0;
+let camX = 0, camY = 0;
 
 function resizeViewport() {
   const totalH = window.innerHeight;
@@ -383,11 +753,9 @@ function resizeViewport() {
                   window.innerWidth <= 600) ? 108 : 0;
   vpH = Math.min(totalH - touchH, 480);
   vpW = Math.min(window.innerWidth, 640);
-
   gameViewport.style.width  = vpW + 'px';
   gameViewport.style.height = vpH + 'px';
 }
-
 window.addEventListener('resize', resizeViewport);
 
 function updateCamera() {
@@ -397,93 +765,98 @@ function updateCamera() {
   };
   camX += (target.x - camX) * CFG.CAM_LERP;
   camY += (target.y - camY) * CFG.CAM_LERP;
-
-  // Clamp to world bounds
   camX = Math.max(0, Math.min(camX, currentLevel.worldW - vpW));
   camY = Math.max(0, Math.min(camY, currentLevel.worldH - vpH));
 }
 
-/* ── 8. RENDERING ────────────────────────────────────────────────────── */
-let domTiles = {};    // id -> DOM element
-let domSpikes = [];
+/* ── 9. RENDERING ────────────────────────────────────────────────────── */
+let domTiles = {};
 let playerEl = null;
-let bgStars  = [];
 
 function buildDOM() {
-  // Clear world
   gameWorld.innerHTML = '';
   domTiles  = {};
-  domSpikes = [];
 
+  gameWorld.classList.toggle('dark-mode', !!currentLevel.darkMode);
   gameWorld.style.width  = currentLevel.worldW + 'px';
   gameWorld.style.height = currentLevel.worldH + 'px';
 
-  // Background stars
   for (let i = 0; i < 80; i++) {
     const s = document.createElement('div');
     s.className = 'bg-star';
-    s.style.left = Math.random() * currentLevel.worldW + 'px';
-    s.style.top  = Math.random() * currentLevel.worldH * 0.85 + 'px';
+    s.style.left    = Math.random() * currentLevel.worldW + 'px';
+    s.style.top     = Math.random() * currentLevel.worldH * 0.85 + 'px';
     s.style.opacity = (0.3 + Math.random() * 0.5).toFixed(2);
     gameWorld.appendChild(s);
-    bgStars.push(s);
   }
 
-  // Tiles
+  currentLevel.gravityZones.forEach(zone => {
+    const el = document.createElement('div');
+    el.className = 'gravity-zone ' + (zone.gravMult > 1 ? 'gravity-heavy' : 'gravity-light');
+    el.style.cssText = `left:${zone.x}px;top:${zone.y}px;width:${zone.w}px;height:${zone.h}px;`;
+    gameWorld.appendChild(el);
+  });
+
+  currentLevel.dangerZones.forEach(zone => {
+    if (!zone.glow) return;
+    const el = document.createElement('div');
+    el.className = 'zone-glow';
+    el.style.cssText = `left:${zone.x}px;top:${zone.y}px;width:${zone.w}px;height:${zone.h}px;`;
+    gameWorld.appendChild(el);
+  });
+
+  currentLevel.triggers.forEach(zone => {
+    if (!zone.glow) return;
+    const el = document.createElement('div');
+    el.className = 'zone-glow';
+    el.style.cssText = `left:${zone.x}px;top:${zone.y}px;width:${zone.w}px;height:${zone.h}px;`;
+    gameWorld.appendChild(el);
+  });
+
   currentLevel.tiles.forEach(tile => {
     const el = document.createElement('div');
     el.className = 'tile tile-' + tile.type;
-    el.style.left   = tile.x + 'px';
-    el.style.top    = tile.y + 'px';
-    el.style.width  = tile.w + 'px';
-    el.style.height = tile.h + 'px';
-    if (tile.type === 'goal') el.textContent = '▲';
+    if (tile.light) el.classList.add('light');
+    el.style.cssText = `left:${tile.x}px;top:${tile.y}px;width:${tile.w}px;height:${tile.h}px;`;
+    if (tile.type === 'goal') el.textContent = '\u25b2';
     gameWorld.appendChild(el);
     domTiles[tile.id] = el;
   });
 
-  // Spikes
-  LEVEL_1_SPIKES.forEach((sp, i) => {
+  currentLevel.spikes.forEach(sp => {
     const wrapper = document.createElement('div');
     wrapper.className = 'spike';
-    wrapper.style.left   = sp.x + 'px';
-    wrapper.style.top    = sp.y + 'px';
-    wrapper.style.width  = sp.w + 'px';
-    wrapper.style.height = sp.h + 'px';
+    wrapper.style.cssText = `left:${sp.x}px;top:${sp.y}px;width:${sp.w}px;height:${sp.h}px;`;
     const inner = document.createElement('div');
     inner.className = 'spike-inner';
-    inner.style.borderLeft  = (sp.w / 2) + 'px solid transparent';
-    inner.style.borderRight = (sp.w / 2) + 'px solid transparent';
+    inner.style.borderLeft   = (sp.w / 2) + 'px solid transparent';
+    inner.style.borderRight  = (sp.w / 2) + 'px solid transparent';
     inner.style.borderBottom = sp.h + 'px solid #8a1a1a';
     wrapper.appendChild(inner);
     gameWorld.appendChild(wrapper);
-    domSpikes.push(wrapper);
   });
 
-  // Player
   playerEl = document.createElement('div');
   playerEl.id = 'player';
   gameWorld.appendChild(playerEl);
 }
 
 function renderFrame() {
-  // Apply camera transform
   gameWorld.style.transform =
     `translate(${-Math.round(camX)}px, ${-Math.round(camY)}px)`;
 
   const p = state.player;
-  playerEl.style.left = Math.round(p.x) + 'px';
-  playerEl.style.top  = Math.round(p.y) + 'px';
-
-  // Flip player sprite when moving left
+  playerEl.style.left      = Math.round(p.x) + 'px';
+  playerEl.style.top       = Math.round(p.y) + 'px';
   playerEl.style.transform = p.facing === -1 ? 'scaleX(-1)' : '';
 
-  // Sync crumble, reveal, false-safe, trigger tile DOM classes
   currentLevel.tiles.forEach(tile => {
     const el = domTiles[tile.id];
     if (!el) return;
     if (tile.type === 'crumble') {
-      el.classList.toggle('shaking', tile.state === 'shaking');
+      const isVis = tile.reveal ? tile.visible : true;
+      el.style.opacity = isVis ? '1' : '0';
+      el.classList.toggle('shaking', tile.state === 'shaking' && isVis);
       el.classList.toggle('gone',    tile.state === 'gone');
     } else if (tile.type === 'reveal') {
       el.classList.toggle('visible', tile.visible);
@@ -497,40 +870,30 @@ function renderFrame() {
   });
 }
 
-/* ── 9. PHYSICS HELPERS ──────────────────────────────────────────────── */
+/* ── 10. PHYSICS HELPERS ─────────────────────────────────────────────── */
 function rectOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
-  return ax < bx + bw && ax + aw > bx &&
-         ay < by + bh && ay + ah > by;
+  return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
 }
-
 function rectOverlapAmt(ax, ay, aw, ah, bx, by, bw, bh) {
-  const ox = Math.min(ax + aw, bx + bw) - Math.max(ax, bx);
-  const oy = Math.min(ay + ah, by + bh) - Math.max(ay, by);
-  return { ox, oy };
-}
-
-/* ── 10. PLAYER & PHYSICS ────────────────────────────────────────────── */
-function initPlayer() {
   return {
-    x:       currentLevel.spawnX,
-    y:       currentLevel.spawnY,
-    vx:      0,
-    vy:      0,
-    onGround: false,
-    facing:   1,
-    coyote:   0,      // coyote time counter
-    jumpBuf:  0,      // jump buffer counter
-    dead:     false,
-    respawnTimer: 0,
-    stillTimer:   0,  // how many frames player hasn't moved horizontally
-    justLanded:   false,
+    ox: Math.min(ax+aw, bx+bw) - Math.max(ax, bx),
+    oy: Math.min(ay+ah, by+bh) - Math.max(ay, by),
   };
 }
 
-function updatePlayer(dt) {
+/* ── 11. PLAYER & PHYSICS ────────────────────────────────────────────── */
+function initPlayer() {
+  return {
+    x: currentLevel.spawnX, y: currentLevel.spawnY,
+    vx:0, vy:0, onGround:false, facing:1,
+    coyote:0, jumpBuf:0, dead:false, respawnTimer:0,
+    stillTimer:0, justLanded:false,
+  };
+}
+
+function updatePlayer() {
   const p = state.player;
 
-  // --- Jump edge detection ---
   const jumpNow  = keys.jump;
   const jumpDown = jumpNow && !_jumpWasDown;
   const jumpUp   = !jumpNow && _jumpWasDown;
@@ -542,10 +905,21 @@ function updatePlayer(dt) {
     return;
   }
 
-  // --- Horizontal movement ---
+  const pw = CFG.PLAYER_W, ph = CFG.PLAYER_H;
+
+  // Gravity zone lookup
+  let gravMult = 1.0, jumpMult = 1.0;
+  currentLevel.gravityZones.forEach(zone => {
+    if (rectOverlap(p.x, p.y, pw, ph, zone.x, zone.y, zone.w, zone.h)) {
+      gravMult = zone.gravMult;
+      jumpMult = zone.jumpMult;
+    }
+  });
+
+  // Horizontal movement
   let moveX = 0;
   if (keys.left)  moveX = -1;
-  if (keys.right)  moveX =  1;
+  if (keys.right) moveX =  1;
 
   if (moveX !== 0) {
     p.facing = moveX;
@@ -553,77 +927,55 @@ function updatePlayer(dt) {
     p.vx  = Math.max(-CFG.MOVE_MAX, Math.min(CFG.MOVE_MAX, p.vx));
     p.stillTimer = 0;
   } else {
-    // Friction
     p.vx *= p.onGround ? CFG.FRICTION : CFG.AIR_FRICTION;
     if (Math.abs(p.vx) < 0.1) p.vx = 0;
     p.stillTimer++;
   }
 
-  // --- Jump buffer ---
+  // Jump buffer & coyote time
   if (jumpDown) p.jumpBuf = CFG.JUMP_BUFFER;
   else if (p.jumpBuf > 0) p.jumpBuf--;
-
-  // --- Coyote time ---
   if (p.onGround) p.coyote = CFG.COYOTE_FRAMES;
   else if (p.coyote > 0) p.coyote--;
 
-  // --- Execute jump ---
   if (p.jumpBuf > 0 && p.coyote > 0) {
-    p.vy      = CFG.JUMP_FORCE;
+    p.vy      = CFG.JUMP_FORCE * jumpMult;
     p.coyote  = 0;
     p.jumpBuf = 0;
     sfxJump();
   }
+  if (jumpUp && p.vy < 0) p.vy *= CFG.JUMP_CUT;
 
-  // --- Jump cut (variable height) ---
-  if (jumpUp && p.vy < 0) {
-    p.vy *= CFG.JUMP_CUT;
-  }
+  // Gravity (zone-modified)
+  p.vy += CFG.GRAVITY * gravMult;
+  if (!p.onGround && p.vy > 0) p.vy += CFG.GRAVITY * CFG.FALL_GRAV_MULT * gravMult;
+  if (p.vy > 24) p.vy = 24;
 
-  // --- Gravity (extra pull while airborne and falling so descent is faster than ascent) ---
-  p.vy += CFG.GRAVITY;
-  if (!p.onGround && p.vy > 0) p.vy += CFG.GRAVITY * CFG.FALL_GRAV_MULT; // skip when grounded to avoid fighting with floor collision
-  if (p.vy > 20) p.vy = 20; // terminal velocity
-
-  // --- Move X then resolve collisions ---
   const prevOnGround = p.onGround;
   p.onGround = false;
-
   p.x += p.vx;
   resolveCollisionsX(p);
-
   p.y += p.vy;
   resolveCollisionsY(p);
 
-  // --- Landing SFX ---
-  if (p.onGround && !prevOnGround) {
-    sfxLand();
-    p.justLanded = true;
-  } else {
-    p.justLanded = false;
-  }
+  if (p.onGround && !prevOnGround) { sfxLand(); p.justLanded = true; }
+  else { p.justLanded = false; }
 
-  // --- Fall into pit (below world) ---
-  if (p.y > currentLevel.worldH + 60) {
-    killPlayer();
-    return;
-  }
+  if (p.y > currentLevel.worldH + 80) { hurtPlayer(); return; }
 
-  // --- Update trap states ---
   updateTraps(p);
 }
 
-/* ── 11. COLLISION RESOLUTION ────────────────────────────────────────── */
-function getTileRect(tile) {
-  return { x: tile.x, y: tile.y, w: tile.w, h: tile.h };
-}
+/* ── 12. COLLISION RESOLUTION ────────────────────────────────────────── */
+function getTileRect(tile) { return {x:tile.x,y:tile.y,w:tile.w,h:tile.h}; }
 
 function isTileSolid(tile) {
   switch (tile.type) {
     case 'solid':      return true;
+    case 'trap':       return true;
     case 'invisible':  return true;
-    case 'fake':       return tile._touched ? false : true;
-    case 'crumble':    return tile.state !== 'gone';
+    case 'fake':       return !tile._touched;
+    case 'crumble':    return tile.state !== 'gone' && (tile.reveal ? tile.visible : true);
     case 'reveal':     return tile.visible;
     case 'false-safe': return true;
     case 'trigger':    return tile.active;
@@ -635,11 +987,10 @@ function resolveCollisionsX(p) {
   const pw = CFG.PLAYER_W, ph = CFG.PLAYER_H;
   currentLevel.tiles.forEach(tile => {
     if (!isTileSolid(tile)) return;
-    const { x, y, w, h } = getTileRect(tile);
-    if (!rectOverlap(p.x, p.y, pw, ph, x, y, w, h)) return;
-    const { ox } = rectOverlapAmt(p.x, p.y, pw, ph, x, y, w, h);
-    if (p.vx > 0) p.x -= ox;
-    else if (p.vx < 0) p.x += ox;
+    const {x,y,w,h} = getTileRect(tile);
+    if (!rectOverlap(p.x,p.y,pw,ph,x,y,w,h)) return;
+    const {ox} = rectOverlapAmt(p.x,p.y,pw,ph,x,y,w,h);
+    if (p.vx > 0) p.x -= ox; else if (p.vx < 0) p.x += ox;
     p.vx = 0;
   });
 }
@@ -647,177 +998,142 @@ function resolveCollisionsX(p) {
 function resolveCollisionsY(p) {
   const pw = CFG.PLAYER_W, ph = CFG.PLAYER_H;
   p.onGround = false;
-
   currentLevel.tiles.forEach(tile => {
     if (!isTileSolid(tile)) return;
-
-    const { x, y, w, h } = getTileRect(tile);
-    if (!rectOverlap(p.x, p.y, pw, ph, x, y, w, h)) return;
-
-    const { oy } = rectOverlapAmt(p.x, p.y, pw, ph, x, y, w, h);
-
+    const {x,y,w,h} = getTileRect(tile);
+    if (!rectOverlap(p.x,p.y,pw,ph,x,y,w,h)) return;
+    const {oy} = rectOverlapAmt(p.x,p.y,pw,ph,x,y,w,h);
     if (p.vy > 0) {
-      // Falling — only land on top of tile
       const prevBottom = p.y + ph - p.vy;
       if (prevBottom <= y + 2) {
-        p.y -= oy;
-        p.vy = 0;
-        p.onGround = true;
-        // Touch-activate tile events
+        p.y -= oy; p.vy = 0; p.onGround = true;
         onLandOn(tile, p);
       }
     } else if (p.vy < 0) {
-      // Rising — only hit underside
-      p.y += oy;
-      p.vy = 0;
+      p.y += oy; p.vy = 0;
     }
   });
 }
 
-/* ── 12. TRAP LOGIC ──────────────────────────────────────────────────── */
+/* ── 13. TRAP LOGIC ──────────────────────────────────────────────────── */
 function onLandOn(tile, p) {
-  /* Called the moment the player lands on a tile */
   if (tile.type === 'fake') {
-    // Start dissolving
     tile._touched = true;
-    tile._dissolveTimer = CFG.FAKE_DELAY;
     const el = domTiles[tile.id];
     if (el) el.classList.add('dissolving');
   }
-
+  if (tile.type === 'trap') { hurtPlayer(); return; }
   if (tile.type === 'crumble' && tile.state === 'idle') {
     tile.state = 'shaking';
-    tile.timer = CFG.CRUMBLE_WARN;
+    tile.timer = tile.instantCrumble ? 1 : (tile.warnFrames || CFG.CRUMBLE_WARN);
   }
-
-  if (tile.type === 'goal') {
-    reachGoal();
-  }
+  if (tile.type === 'goal') { reachGoal(); }
 }
 
 function updateTraps(p) {
   const pw = CFG.PLAYER_W, ph = CFG.PLAYER_H;
 
   currentLevel.tiles.forEach(tile => {
-    // ── Crumble ──────────────────────────────────────────────────────
-    if (tile.type === 'crumble') {
-      if (tile.state === 'shaking') {
-        tile.timer--;
-        if (tile.timer <= 0) {
-          tile.state = 'gone';
-          tile.timer = CFG.CRUMBLE_GONE;
-        }
-      } else if (tile.state === 'gone') {
-        tile.timer--;
-        if (tile.timer <= 0) {
-          tile.state = 'idle';
-        }
-      }
-    }
 
-    // ── Reveal ───────────────────────────────────────────────────────
-    if (tile.type === 'reveal') {
-      // Reveal if player is standing still AND within the reveal zone.
-      // Use a wide radius (120 px) so standing on the edge platform at
-      // the gap's left side reliably triggers the hidden path.
-      const withinX = p.x + pw > tile.x - CFG.REVEAL_RADIUS && p.x < tile.x + tile.w + CFG.REVEAL_RADIUS;
-      if (p.onGround && withinX && p.stillTimer >= CFG.REVEAL_STILL) {
-        if (!tile.visible) {
-          tile.visible = true;
+    // Crumble (incl. reveal-crumble hybrid)
+    if (tile.type === 'crumble') {
+      if (tile.reveal && !tile.visible) {
+        const inRange = p.x + pw > tile.x - 160 && p.x < tile.x + tile.w + 160;
+        if (p.onGround && inRange && p.stillTimer >= CFG.REVEAL_STILL) {
+          tile.visible = true; tile.state = 'idle'; tile.timer = 0;
           sfxReveal();
         }
       }
-      // Hide again when player moves away (after a delay)
-      if (!withinX && tile.visible) {
-        // Don't hide — let it stay once revealed (fairness)
+      if (tile.state === 'shaking') {
+        tile.timer--;
+        if (tile.timer <= 0) {
+          tile.state = 'gone'; tile.timer = CFG.CRUMBLE_GONE;
+          if (tile.reveal) tile.visible = false;
+        }
+      } else if (tile.state === 'gone') {
+        tile.timer--;
+        if (tile.timer <= 0) tile.state = 'idle';
       }
     }
 
-    // ── False-safe ───────────────────────────────────────────────────
+    // Pure reveal tiles
+    if (tile.type === 'reveal') {
+      const inRange = p.x + pw > tile.x - 160 && p.x < tile.x + tile.w + 160;
+      if (p.onGround && inRange && p.stillTimer >= CFG.REVEAL_STILL) {
+        if (!tile.visible) { tile.visible = true; sfxReveal(); }
+      }
+    }
+
+    // False-safe
     if (tile.type === 'false-safe') {
-      const onThis = p.onGround && rectOverlap(
-        p.x, p.y, pw, ph,
-        tile.x, tile.y, tile.w, tile.h
-      );
+      const ttl  = tile.fastTTL  || CFG.FALSE_SAFE_TTL;
+      const warn = tile.fastWarn || CFG.FALSE_SAFE_WARN;
+      const onThis = p.onGround &&
+        rectOverlap(p.x, p.y, pw, ph, tile.x, tile.y, tile.w, tile.h);
       if (onThis) {
         tile.timer++;
-        // Warming hint at the halfway point — subtle colour shift signals danger
-        if (tile.timer >= CFG.FALSE_SAFE_WARN && !tile._warming && !tile.dangerous) {
-          tile._warming = true;
+        if (tile.timer >= warn && !tile._warming && !tile.dangerous) tile._warming = true;
+        if (tile.timer >= ttl  && !tile.dangerous) {
+          tile.dangerous = true; tile.dangerTimer = 0; tile._warming = false;
         }
-        // Become dangerous at TTL — CSS red glow fires, grace period begins
-        if (tile.timer >= CFG.FALSE_SAFE_TTL && !tile.dangerous) {
-          tile.dangerous = true;
-          tile.dangerTimer = 0;
-          tile._warming = false;
-        }
-        // Kill only after the grace window so the visual warning has time to read
         if (tile.dangerous) {
           tile.dangerTimer++;
-          if (tile.dangerTimer >= CFG.FALSE_SAFE_GRACE) {
-            killPlayer();
-          }
+          if (tile.dangerTimer >= CFG.FALSE_SAFE_GRACE) hurtPlayer();
         }
-      } else {
-        // Reset timer when off the tile
-        if (!tile.dangerous) {
-          tile.timer = Math.max(0, tile.timer - 2);
-          if (tile.timer < CFG.FALSE_SAFE_WARN) tile._warming = false;
-        }
+      } else if (!tile.dangerous) {
+        tile.timer = Math.max(0, tile.timer - 2);
+        if (tile.timer < warn) tile._warming = false;
       }
     }
 
-    // ── Triggered tile ────────────────────────────────────────────────
+    // Triggered tiles
     if (tile.type === 'trigger' && !tile.active) {
-      // Find matching trigger zone
-      LEVEL_1_TRIGGERS.forEach(zone => {
+      currentLevel.triggers.forEach(zone => {
         if (zone.id !== tile.trigId) return;
         const inZone = rectOverlap(p.x, p.y, pw, ph, zone.x, zone.y, zone.w, zone.h);
-        // Activate on any contact with the trigger zone (no jump required).
-        // A ghost outline fades in as the player approaches, so they can
-        // see the bridge silhouette before they understand how to summon it.
         if (inZone) {
-          tile.active = true;
+          if (zone.minStillFrames > 0) {
+            if (p.stillTimer >= zone.minStillFrames) tile.active = true;
+          } else {
+            tile.active = true;
+          }
         }
-        // Ghost visibility: show faint outline when player is within 96 px
-        const nearZone = p.x + pw > zone.x - CFG.GHOST_RADIUS && p.x < zone.x + zone.w + CFG.GHOST_RADIUS;
+        const nearZone = p.x + pw > zone.x - CFG.GHOST_RADIUS &&
+                         p.x < zone.x + zone.w + CFG.GHOST_RADIUS;
         tile._near = nearZone;
       });
     }
 
-    // ── Goal overlap ──────────────────────────────────────────────────
+    // Goal
     if (tile.type === 'goal') {
-      if (rectOverlap(p.x, p.y, pw, ph, tile.x, tile.y, tile.w, tile.h)) {
-        reachGoal();
-      }
+      if (rectOverlap(p.x, p.y, pw, ph, tile.x, tile.y, tile.w, tile.h)) reachGoal();
     }
   });
 
-  // ── Spike collisions ─────────────────────────────────────────────────
-  LEVEL_1_SPIKES.forEach(sp => {
-    if (rectOverlap(p.x, p.y + ph - 6, pw - 2, 6,
-                    sp.x, sp.y, sp.w, sp.h)) {
-      killPlayer();
-    }
+  // Spike collisions (feet)
+  currentLevel.spikes.forEach(sp => {
+    if (rectOverlap(p.x, p.y + ph - 6, pw - 2, 6, sp.x, sp.y, sp.w, sp.h)) hurtPlayer();
+  });
+
+  // Danger zone collisions (feet)
+  currentLevel.dangerZones.forEach(zone => {
+    if (rectOverlap(p.x, p.y + ph - 6, pw - 2, 6, zone.x, zone.y, zone.w, zone.h)) hurtPlayer();
   });
 }
 
-/* ── 13. DEATH & RESPAWN ─────────────────────────────────────────────── */
-function killPlayer() {
+/* ── 14. DEATH & RESPAWN ─────────────────────────────────────────────── */
+function hurtPlayer() {
   if (state.player.dead) return;
   state.player.dead = true;
   state.player.respawnTimer = CFG.RESPAWN_DELAY;
-  state.player.vx = 0;
-  state.player.vy = 0;
+  state.player.vx = state.player.vy = 0;
 
   deaths++;
   deathCountEl.textContent = deaths;
-
   sfxDeath();
 
-  // Flash & shake
   flashOverlay.classList.remove('flash');
-  void flashOverlay.offsetWidth; // reflow to restart animation
+  void flashOverlay.offsetWidth;
   flashOverlay.classList.add('flash');
 
   gameViewport.classList.remove('shake');
@@ -825,50 +1141,39 @@ function killPlayer() {
   gameViewport.classList.add('shake');
   setTimeout(() => gameViewport.classList.remove('shake'), 300);
 
-  // Reset traps for fairness
   resetTraps();
 }
 
 function respawn() {
   const p = state.player;
-  p.dead  = false;
-  p.x     = currentLevel.spawnX;
-  p.y     = currentLevel.spawnY;
-  p.vx    = 0;
-  p.vy    = 0;
-  p.onGround  = false;
-  p.coyote    = 0;
-  p.jumpBuf   = 0;
-  p.stillTimer = 0;
+  p.dead = false;
+  p.x = currentLevel.spawnX; p.y = currentLevel.spawnY;
+  p.vx = p.vy = 0;
+  p.onGround = false;
+  p.coyote = p.jumpBuf = p.stillTimer = 0;
 }
 
 function resetTraps() {
   currentLevel.tiles.forEach(tile => {
     if (tile.type === 'crumble') {
-      tile.state = 'idle';
-      tile.timer = 0;
+      tile.state = 'idle'; tile.timer = 0;
+      if (tile.reveal) tile.visible = false;
     }
     if (tile.type === 'fake') {
       tile._touched = false;
-      tile._dissolveTimer = 0;
       const el = domTiles[tile.id];
       if (el) el.classList.remove('dissolving');
     }
     if (tile.type === 'false-safe') {
-      tile.timer = 0;
-      tile.dangerous = false;
-      tile.dangerTimer = 0;
-      tile._warming = false;
+      tile.timer = 0; tile.dangerous = false;
+      tile.dangerTimer = 0; tile._warming = false;
     }
-    if (tile.type === 'trigger') {
-      tile.active = false;
-      tile._near  = false;
-    }
-    // Reveal tiles stay visible once discovered (by design — fairness)
+    if (tile.type === 'trigger') { tile.active = false; tile._near = false; }
+    // reveal tiles keep state once found (fairness)
   });
 }
 
-/* ── 14. GOAL / LEVEL COMPLETE ───────────────────────────────────────── */
+/* ── 15. GOAL / LEVEL COMPLETE ───────────────────────────────────────── */
 let goalReached = false;
 
 function reachGoal() {
@@ -877,30 +1182,31 @@ function reachGoal() {
   sfxGoal();
 
   setTimeout(() => {
-    endDeathsEl.textContent = `Deaths: ${deaths}`;
-    endScreen.classList.remove('hidden');
     cancelAnimationFrame(state.rafId);
-  }, 600);
+    if (currentLevelIndex + 1 < LEVELS.length) {
+      currentLevelIndex++;
+      loadLevel(currentLevelIndex);
+    } else {
+      endDeathsEl.textContent = `Deaths: ${deaths}`;
+      endScreen.classList.remove('hidden');
+    }
+  }, 700);
 }
 
-/* ── 15. GAME LOOP ───────────────────────────────────────────────────── */
+/* ── 16. GAME LOOP ───────────────────────────────────────────────────── */
 function gameLoop() {
   state.rafId = requestAnimationFrame(gameLoop);
-  updatePlayer(1);
+  updatePlayer();
   updateCamera();
   renderFrame();
 }
 
-/* ── 16. LEVEL INIT & START ──────────────────────────────────────────── */
-function startGame() {
-  deaths = 0;
-  goalReached = false;
-  deathCountEl.textContent = 0;
+/* ── 17. LEVEL LOADING ───────────────────────────────────────────────── */
+function loadLevel(index) {
+  goalReached  = false;
   _jumpWasDown = false;
 
-  currentLevel = LEVEL_1;
-  // Deep-clone tile state fields so restarts are clean
-  currentLevel.tiles = buildLevel1Tiles();
+  currentLevel = LEVELS[index]();
 
   resizeViewport();
   buildDOM();
@@ -911,7 +1217,6 @@ function startGame() {
   camX = Math.max(0, Math.min(camX, currentLevel.worldW - vpW));
   camY = Math.max(0, Math.min(camY, currentLevel.worldH - vpH));
 
-  // Show level title briefly
   levelTitleEl.textContent = currentLevel.name;
   levelTitleEl.classList.add('visible');
   setTimeout(() => levelTitleEl.classList.remove('visible'), 2200);
@@ -919,9 +1224,15 @@ function startGame() {
   gameLoop();
 }
 
-/* ── 17. UI EVENTS ───────────────────────────────────────────────────── */
+function startGame() {
+  deaths = 0;
+  currentLevelIndex = 0;
+  deathCountEl.textContent = 0;
+  loadLevel(0);
+}
+
+/* ── 18. UI EVENTS ───────────────────────────────────────────────────── */
 document.getElementById('start-btn').addEventListener('click', () => {
-  // Unlock audio context on first interaction
   try { getAudioCtx(); } catch (_) {}
   titleScreen.classList.add('hidden');
   gameWrapper.classList.remove('hidden');
