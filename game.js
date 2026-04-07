@@ -383,9 +383,10 @@ function buildLevel8() {
 function buildLevel9() {
   const {S,F,I,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40,  100, 200, 16);
-  S(40,  116, 16,  600);    // left wall (extended deeper)
-  S(208, 116, 16,  600);    // right wall (extended deeper)
-  I(56,  280, 152, 16);     // invisible mid-shaft landing (the real safe spot)
+  S(40,  116, 16,  600);    // left wall (full height)
+  S(208, 116, 16,  142);    // right wall upper (y=116–258; gap at 258–280 for player exit)
+  S(208, 280, 16,  436);    // right wall lower (y=280–716)
+  I(56,  280, 152, 16);     // invisible mid-shaft landing (real safe spot)
   S(224, 280, 200, 16);
   F(56,  700, 152, 16);     // fake floor — hidden below initial viewport
   spike(56, 716, 9);
