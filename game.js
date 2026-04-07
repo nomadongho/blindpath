@@ -391,6 +391,7 @@ function buildLevel9() {
   S(424, 280, 160, 16);
   G(544, 252, 32, 28);
   return {name:'09 · The False Bottom', worldW:680, worldH:580, spawnX:80, spawnY:78,
+          initialCamOffsetY: 0.9,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
@@ -898,9 +899,11 @@ window.addEventListener('resize', resizeViewport);
 function updateCamera() {
   // Phase 2: offset reversed so player sees more of what's behind (disorienting)
   const offsetX = gamePhase === 2 ? 0.62 : CFG.CAM_OFFSET_X;
+  const offsetY = (currentLevel.initialCamOffsetY && !state.hasJumped)
+    ? currentLevel.initialCamOffsetY : 0.6;
   const target = {
     x: state.player.x - vpW * offsetX,
-    y: state.player.y - vpH * 0.6,
+    y: state.player.y - vpH * offsetY,
   };
   camX += (target.x - camX) * CFG.CAM_LERP;
   camY += (target.y - camY) * CFG.CAM_LERP;
@@ -1089,6 +1092,7 @@ function updatePlayer() {
     p.coyote  = 0;
     p.jumpBuf = 0;
     sfxJump();
+    state.hasJumped = true;
   }
   if (jumpUp && p.vy < 0) p.vy *= CFG.JUMP_CUT;
 
@@ -1297,6 +1301,7 @@ function respawn() {
   p.vx = p.vy = 0;
   p.onGround = false;
   p.coyote = p.jumpBuf = p.stillTimer = 0;
+  state.hasJumped = false;
 }
 
 function resetTraps() {
@@ -1377,9 +1382,11 @@ function loadLevel(index) {
   buildDOM();
 
   const offsetX = gamePhase === 2 ? 0.62 : CFG.CAM_OFFSET_X;
+  const offsetY = currentLevel.initialCamOffsetY ?? 0.6;
   state.player = initPlayer();
+  state.hasJumped = false;
   camX = currentLevel.spawnX - vpW * offsetX;
-  camY = currentLevel.spawnY - vpH * 0.6;
+  camY = currentLevel.spawnY - vpH * offsetY;
   camX = Math.max(0, Math.min(camX, currentLevel.worldW - vpW));
   camY = Math.max(0, Math.min(camY, currentLevel.worldH - vpH));
 
