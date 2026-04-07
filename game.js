@@ -1495,12 +1495,159 @@ function showTrueEnding() {
   document.getElementById('true-end-screen').classList.remove('hidden');
 }
 
+/* ── 18b. INTRO STORY ANIMATION ──────────────────────────────────────── */
+function showIntroAnimation(callback) {
+  const intro  = document.getElementById('intro-screen');
+  const textEl = document.getElementById('intro-text');
+  intro.classList.remove('hidden');
+  intro.style.opacity = '1';
+
+  let cancelled = false;
+
+  function finish() {
+    if (cancelled) return;
+    cancelled = true;
+    document.removeEventListener('keydown', onSkip);
+    intro.removeEventListener('click', onSkip);
+    intro.style.transition = 'opacity 0.45s ease';
+    intro.style.opacity    = '0';
+    setTimeout(() => {
+      intro.classList.add('hidden');
+      intro.style.transition = '';
+      intro.style.opacity    = '';
+      intro.style.background = '';
+      textEl.innerHTML = '';
+      callback();
+    }, 460);
+  }
+
+  function onSkip() { finish(); }
+  document.addEventListener('keydown', onSkip);
+  intro.addEventListener('click', onSkip);
+
+  // Scenes: each slide in the story arc
+  // phase  0 = neutral, 1 = reality, 2 = dream, 3 = final
+  const scenes = [
+    {
+      lines:    ['you walk blind.'],
+      duration: 1250,
+      bg:       '#0a0a0f',
+      color:    '#c0b898',
+    },
+    {
+      lines:    ['you fall.', 'you learn.'],
+      duration: 1250,
+      bg:       '#0a0a0f',
+      color:    '#7a7060',
+    },
+    {
+      // Mirrors the fake-end-screen (level 30 milestone)
+      lines:     ['— path cleared —', 'you found the way through.'],
+      duration:  1500,
+      bg:        '#0a0a0f',
+      color:     '#c8b870',
+      onEnter() {
+        try {
+          const ctx = getAudioCtx();
+          const t   = ctx.currentTime;
+          playTone(330, 'sine', 2.0, 0.30, t);
+          playTone(440, 'sine', 2.5, 0.20, t + 0.5);
+        } catch (_) {}
+      },
+    },
+    {
+      // Wake-transition flash (level 60 milestone)
+      lines:    [],
+      duration: 340,
+      bg:       '#ffffff',
+      color:    '#ffffff',
+      onEnter() {
+        try {
+          const ctx = getAudioCtx();
+          const t   = ctx.currentTime;
+          playTone(1760, 'sine', 0.12, 0.45, t);
+          playTone(880,  'sine', 0.22, 0.30, t + 0.08);
+        } catch (_) {}
+      },
+    },
+    {
+      // Phase-2 dream continuation hint
+      lines:    ['but the path', 'continues in darkness.'],
+      duration: 1250,
+      bg:       '#04060e',
+      color:    '#405888',
+      italic:   true,
+    },
+    {
+      // True ending (echoes showTrueEnding)
+      lines:    ['every path leads somewhere.', 'even the ones that hurt.'],
+      duration: 1600,
+      bg:       '#060404',
+      color:    '#6a6060',
+      onEnter() {
+        try {
+          const ctx = getAudioCtx();
+          const t   = ctx.currentTime;
+          playTone(220, 'sine', 2.8, 0.22, t);
+          playTone(330, 'sine', 3.2, 0.14, t + 0.35);
+        } catch (_) {}
+      },
+    },
+  ];
+
+  let sceneIdx = 0;
+
+  function runScene() {
+    if (cancelled) return;
+    if (sceneIdx >= scenes.length) { finish(); return; }
+
+    const scene = scenes[sceneIdx++];
+    intro.style.background = scene.bg || '#0a0a0f';
+
+    textEl.innerHTML = '';
+
+    const lineEls = scene.lines.map(line => {
+      const el        = document.createElement('span');
+      el.className    = 'intro-line';
+      if (scene.italic) el.classList.add('italic');
+      el.textContent  = line;
+      el.style.color  = scene.color || '#d0c8b0';
+      textEl.appendChild(el);
+      return el;
+    });
+
+    if (scene.onEnter) scene.onEnter();
+
+    // Fade in
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      lineEls.forEach(el => el.classList.add('visible'));
+    }));
+
+    // Hold → fade out → next scene
+    setTimeout(() => {
+      if (cancelled) return;
+      lineEls.forEach(el => {
+        el.classList.remove('visible');
+        el.classList.add('fading');
+      });
+      setTimeout(() => {
+        if (cancelled) return;
+        runScene();
+      }, 480);
+    }, scene.duration);
+  }
+
+  runScene();
+}
+
 /* ── 19. UI EVENTS ───────────────────────────────────────────────────── */
 document.getElementById('start-btn').addEventListener('click', () => {
   try { getAudioCtx(); } catch (_) {}
   titleScreen.classList.add('hidden');
-  gameWrapper.classList.remove('hidden');
-  startGame();
+  showIntroAnimation(() => {
+    gameWrapper.classList.remove('hidden');
+    startGame();
+  });
 });
 
 continueBtn.addEventListener('click', () => {
