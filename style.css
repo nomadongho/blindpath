@@ -1,0 +1,407 @@
+/* =====================================================================
+   BLINDPATH — style.css
+   Pixel-art retro platformer UI styles
+   ===================================================================== */
+
+/* Reset & base */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a0a0f;
+  font-family: 'Courier New', Courier, monospace;
+  color: #d0c8b0;
+  image-rendering: pixelated;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Title Screen */
+#title-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a0a0f;
+  z-index: 100;
+}
+
+#title-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+}
+
+#title-logo {
+  font-size: clamp(2.4rem, 8vw, 4.2rem);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  color: #e8dfc0;
+  text-shadow:
+    2px 2px 0 #4a3f2e,
+    4px 4px 0 #1a160e,
+    0 0 40px rgba(232, 200, 100, 0.18);
+}
+
+#title-sub {
+  font-size: clamp(0.75rem, 2.5vw, 1rem);
+  letter-spacing: 0.22em;
+  color: #7a7060;
+  text-transform: uppercase;
+}
+
+#start-btn,
+#restart-btn {
+  margin-top: 8px;
+  padding: 10px 40px;
+  background: transparent;
+  border: 2px solid #6a5f40;
+  color: #c8b870;
+  font-family: inherit;
+  font-size: clamp(0.8rem, 2.5vw, 1rem);
+  letter-spacing: 0.25em;
+  cursor: pointer;
+  outline: none;
+  text-transform: uppercase;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+#start-btn:hover,
+#start-btn:focus,
+#restart-btn:hover,
+#restart-btn:focus {
+  background: #6a5f40;
+  color: #0a0a0f;
+  border-color: #c8b870;
+}
+
+/* Game wrapper & viewport */
+#game-wrapper {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: #0a0a0f;
+}
+
+#game-viewport {
+  position: relative;
+  overflow: hidden;
+  background: #0d0d14;
+  flex-shrink: 0;
+}
+
+/* Game world (scroll container) */
+#game-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Player */
+#player {
+  position: absolute;
+  width: 14px;
+  height: 22px;
+  background: #e8dfc0;
+  image-rendering: pixelated;
+}
+
+#player::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 2px;
+  width: 10px;
+  height: 8px;
+  background: #c0a870;
+}
+
+#player::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  width: 2px;
+  height: 2px;
+  background: #0a0a0f;
+}
+
+/* Platform tiles */
+.tile {
+  position: absolute;
+  image-rendering: pixelated;
+}
+
+.tile-solid {
+  background: #3a3228;
+  border-top: 2px solid #5a4e3a;
+}
+
+.tile-crumble {
+  background: #3a3228;
+  border-top: 2px solid #5a4e3a;
+  transition: opacity 0.15s;
+}
+
+.tile-crumble.shaking {
+  animation: crumble-shake 0.25s steps(2) infinite;
+}
+
+.tile-crumble.gone {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tile-fake {
+  background: #3a3228;
+  border-top: 2px solid #5a4e3a;
+  transition: opacity 0.12s;
+}
+
+.tile-fake.dissolving {
+  opacity: 0;
+}
+
+.tile-invisible {
+  opacity: 0;
+}
+
+.tile-reveal {
+  background: #2a3a28;
+  border-top: 2px solid #3a5a3a;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.tile-reveal.visible {
+  opacity: 1;
+}
+
+.tile-false-safe {
+  background: #3a3228;
+  border-top: 2px solid #5a4e3a;
+  transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+
+.tile-false-safe.danger {
+  background: #4a1a1a;
+  border-top: 2px solid #8a2a2a;
+  box-shadow: 0 0 8px rgba(180, 40, 40, 0.6);
+}
+
+.tile-trigger {
+  background: #2a2a3a;
+  border-top: 2px solid #3a3a5a;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.tile-trigger.active {
+  opacity: 1;
+}
+
+/* Goal tile */
+.tile-goal {
+  background: transparent;
+  border: 2px dashed #c8b870;
+  box-shadow: inset 0 0 12px rgba(200,180,80,0.25);
+  display: grid;
+  place-items: center;
+  color: #c8b870;
+  font-size: 16px;
+}
+
+/* Spikes */
+.spike {
+  position: absolute;
+  overflow: visible;
+}
+
+.spike-inner {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 10px solid #8a1a1a;
+}
+
+/* Background decoration */
+.bg-star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: #2a2840;
+}
+
+/* Death flash overlay */
+#flash-overlay {
+  position: absolute;
+  inset: 0;
+  background: #ff2020;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+#flash-overlay.flash {
+  animation: death-flash 0.35s steps(1) forwards;
+}
+
+@keyframes death-flash {
+  0%   { opacity: 0.55; }
+  30%  { opacity: 0.3; }
+  60%  { opacity: 0.1; }
+  100% { opacity: 0; }
+}
+
+/* Screen shake */
+#game-viewport.shake {
+  animation: screen-shake 0.25s steps(2);
+}
+
+@keyframes screen-shake {
+  0%   { transform: translate(0,0); }
+  20%  { transform: translate(-3px, 2px); }
+  40%  { transform: translate(3px, -2px); }
+  60%  { transform: translate(-2px, 3px); }
+  80%  { transform: translate(2px, -1px); }
+  100% { transform: translate(0,0); }
+}
+
+@keyframes crumble-shake {
+  0%   { transform: translateX(0); }
+  50%  { transform: translateX(2px); }
+  100% { transform: translateX(-2px); }
+}
+
+/* Level title overlay */
+#level-title-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(0.7rem, 2vw, 0.9rem);
+  letter-spacing: 0.3em;
+  color: #6a6050;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.8s;
+  z-index: 20;
+}
+
+#level-title-overlay.visible {
+  opacity: 1;
+}
+
+/* Death counter */
+#death-counter {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: #5a5040;
+  z-index: 30;
+  pointer-events: none;
+}
+
+/* Mobile touch controls */
+#touch-controls {
+  display: none;
+  width: 100%;
+  max-width: 480px;
+  padding: 10px 16px;
+  flex-shrink: 0;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.touch-btn {
+  width: 64px;
+  height: 54px;
+  background: rgba(80, 70, 50, 0.35);
+  border: 2px solid rgba(120, 100, 60, 0.5);
+  color: #a09070;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  user-select: none;
+}
+
+.touch-btn:active,
+.touch-btn.pressed {
+  background: rgba(120, 100, 60, 0.55);
+  border-color: rgba(200, 180, 100, 0.7);
+  color: #e8d080;
+}
+
+#touch-jump {
+  width: 90px;
+  height: 54px;
+  font-size: 20px;
+}
+
+/* Completion screen */
+#end-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 15, 0.92);
+  z-index: 200;
+}
+
+#end-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+}
+
+#end-title {
+  font-size: clamp(1rem, 4vw, 1.6rem);
+  letter-spacing: 0.2em;
+  color: #c8b870;
+}
+
+#end-deaths {
+  font-size: clamp(0.75rem, 2.5vw, 0.95rem);
+  letter-spacing: 0.15em;
+  color: #7a7060;
+}
+
+/* Utility */
+.hidden {
+  display: none !important;
+}
+
+/* Show touch controls on touch-capable / narrow screens */
+@media (pointer: coarse), (max-width: 600px) {
+  #touch-controls {
+    display: flex;
+  }
+}

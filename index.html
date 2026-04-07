@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>BLINDPATH</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Title Screen -->
+  <div id="title-screen">
+    <div id="title-box">
+      <div id="title-logo">BLINDPATH</div>
+      <div id="title-sub">Learn by falling.</div>
+      <button id="start-btn">START</button>
+    </div>
+  </div>
+
+  <!-- Game Container -->
+  <div id="game-wrapper" class="hidden">
+    <div id="game-viewport">
+      <div id="game-world"></div>
+      <!-- UI overlays -->
+      <div id="level-title-overlay"></div>
+      <div id="death-counter">✝ <span id="death-count">0</span></div>
+      <div id="flash-overlay"></div>
+    </div>
+
+    <!-- Mobile touch controls -->
+    <div id="touch-controls">
+      <div id="touch-left" class="touch-btn" aria-label="Move Left">◀</div>
+      <div id="touch-right" class="touch-btn" aria-label="Move Right">▶</div>
+      <div id="touch-jump" class="touch-btn" aria-label="Jump">▲</div>
+    </div>
+  </div>
+
+  <!-- Completion Screen -->
+  <div id="end-screen" class="hidden">
+    <div id="end-box">
+      <div id="end-title">— PATH CLEARED —</div>
+      <div id="end-deaths"></div>
+      <button id="restart-btn">RESTART</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
