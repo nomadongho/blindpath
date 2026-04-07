@@ -1643,11 +1643,30 @@ function showIntroAnimation(callback) {
 /* ── 19. UI EVENTS ───────────────────────────────────────────────────── */
 document.getElementById('start-btn').addEventListener('click', () => {
   try { getAudioCtx(); } catch (_) {}
+  const saved = loadProgress();
+  if (saved && (saved.phase > 1 || saved.levelIndex > 0)) {
+    const modal = document.getElementById('reset-confirm-modal');
+    modal.classList.remove('hidden');
+    return;
+  }
+  initiateGameStart();
+});
+
+function initiateGameStart() {
   titleScreen.classList.add('hidden');
   showIntroAnimation(() => {
     gameWrapper.classList.remove('hidden');
     startGame();
   });
+}
+
+document.getElementById('reset-confirm-yes').addEventListener('click', () => {
+  document.getElementById('reset-confirm-modal').classList.add('hidden');
+  initiateGameStart();
+});
+
+document.getElementById('reset-confirm-no').addEventListener('click', () => {
+  document.getElementById('reset-confirm-modal').classList.add('hidden');
 });
 
 continueBtn.addEventListener('click', () => {
