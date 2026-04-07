@@ -1649,21 +1649,20 @@ document.getElementById('start-btn').addEventListener('click', () => {
     modal.classList.remove('hidden');
     return;
   }
-  titleScreen.classList.add('hidden');
-  showIntroAnimation(() => {
-    gameWrapper.classList.remove('hidden');
-    startGame();
-  });
+  initiateGameStart();
 });
 
-document.getElementById('reset-confirm-yes').addEventListener('click', () => {
-  const modal = document.getElementById('reset-confirm-modal');
-  modal.classList.add('hidden');
+function initiateGameStart() {
   titleScreen.classList.add('hidden');
   showIntroAnimation(() => {
     gameWrapper.classList.remove('hidden');
     startGame();
   });
+}
+
+document.getElementById('reset-confirm-yes').addEventListener('click', () => {
+  document.getElementById('reset-confirm-modal').classList.add('hidden');
+  initiateGameStart();
 });
 
 document.getElementById('reset-confirm-no').addEventListener('click', () => {
