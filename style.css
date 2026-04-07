@@ -88,6 +88,69 @@ html, body {
   border-color: #c8b870;
 }
 
+/* Reset Confirmation Modal */
+#reset-confirm-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 15, 0.85);
+  z-index: 200;
+}
+
+#reset-confirm-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 36px 44px;
+  border: 2px solid #6a5f40;
+  background: #0a0a0f;
+  text-align: center;
+}
+
+#reset-confirm-title {
+  font-size: 1.2rem;
+  letter-spacing: 0.15em;
+  color: #c8b870;
+  text-transform: lowercase;
+}
+
+#reset-confirm-msg {
+  font-size: 0.85rem;
+  color: #8a7f60;
+  letter-spacing: 0.05em;
+}
+
+#reset-confirm-btns {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+#reset-confirm-yes,
+#reset-confirm-no {
+  padding: 8px 28px;
+  background: transparent;
+  border: 2px solid #6a5f40;
+  color: #c8b870;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  text-transform: lowercase;
+}
+
+#reset-confirm-yes:hover,
+#reset-confirm-yes:focus,
+#reset-confirm-no:hover,
+#reset-confirm-no:focus {
+  background: #6a5f40;
+  color: #0a0a0f;
+  border-color: #c8b870;
+}
+
 /* Game wrapper & viewport */
 #game-wrapper {
   position: fixed;
