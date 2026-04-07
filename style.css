@@ -418,3 +418,74 @@ html, body {
     display: flex;
   }
 }
+
+/* ── New mechanics added in 30-level edition ── */
+
+/* Light-coloured tile variant — used in levels 4, 10 (light = crumble),
+   17, 24 (light solid = safe after rule inversion) */
+.tile-solid.light,
+.tile-crumble.light {
+  background: #7a6848;
+  border-top: 2px solid #b8a060;
+}
+.tile-crumble.light.shaking {
+  animation: crumble-shake 0.25s steps(2) infinite;
+}
+
+/* Trap tile — looks identical to solid but kills on landing */
+.tile-trap {
+  background: #3a3228;
+  border-top: 2px solid #5a4e3a;
+}
+
+/* Gravity zone background tints */
+.gravity-zone {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1;
+}
+.gravity-heavy {
+  background: rgba(160, 60, 30, 0.07);
+  border: 1px solid rgba(160, 80, 50, 0.12);
+}
+.gravity-light {
+  background: rgba(40, 80, 160, 0.07);
+  border: 1px solid rgba(60, 100, 180, 0.12);
+}
+
+/* Glowing zone — used for danger zones and trigger zones that glow identically
+   (levels 19, 26). The deliberate visual ambiguity is the mechanic. */
+.zone-glow {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+  background: rgba(180, 130, 30, 0.12);
+  border: 1px solid rgba(200, 160, 50, 0.30);
+  box-shadow: 0 0 10px rgba(180, 130, 30, 0.18),
+              inset 0 0 6px rgba(180, 130, 30, 0.10);
+  animation: zone-pulse 1.8s ease-in-out infinite;
+}
+@keyframes zone-pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(180, 130, 30, 0.18), inset 0 0 6px rgba(180, 130, 30, 0.10); }
+  50%       { box-shadow: 0 0 18px rgba(180, 130, 30, 0.30), inset 0 0 10px rgba(180, 130, 30, 0.18); }
+}
+
+/* Dark mode — Level 30 "Blindpath".
+   Hides tiles and spikes; only the goal (dashed border) and player remain visible. */
+#game-world.dark-mode {
+  background: #000 !important;
+}
+#game-world.dark-mode .bg-star {
+  display: none;
+}
+#game-world.dark-mode .tile:not(.tile-goal) {
+  opacity: 0 !important;
+  transition: none !important;
+}
+#game-world.dark-mode .spike {
+  opacity: 0 !important;
+}
+#game-world.dark-mode .gravity-zone,
+#game-world.dark-mode .zone-glow {
+  opacity: 0 !important;
+}
