@@ -37,12 +37,36 @@
     </div>
   </div>
 
-  <!-- Completion Screen -->
+  <!-- Completion Screen (Phase 3 true ending uses this) -->
   <div id="end-screen" class="hidden">
     <div id="end-box">
       <div id="end-title">— PATH CLEARED —</div>
       <div id="end-deaths"></div>
       <button id="restart-btn">RESTART</button>
+    </div>
+  </div>
+
+  <!-- Fake Ending Screen (shown after Phase 1 / Level 30) -->
+  <div id="fake-end-screen" class="hidden">
+    <div id="fake-end-box">
+      <div id="fake-end-title">— path cleared —</div>
+      <div id="fake-end-sub">you found the way through.</div>
+      <div id="fake-end-rest">every step was yours.</div>
+      <button id="fake-continue-btn">. . .</button>
+    </div>
+  </div>
+
+  <!-- Wake Transition (between Phase 2 and Phase 3) -->
+  <div id="wake-screen" class="hidden"></div>
+
+  <!-- True Ending Screen (after Phase 3 / Level 30) -->
+  <div id="true-end-screen" class="hidden">
+    <div id="true-end-box">
+      <div id="true-end-title">— — —</div>
+      <div id="true-end-line">every path leads somewhere.</div>
+      <div id="true-end-sub">even the ones that hurt.</div>
+      <div id="true-end-deaths"></div>
+      <button id="true-restart-btn">begin again</button>
     </div>
   </div>
 

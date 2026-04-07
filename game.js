@@ -39,6 +39,33 @@ let state = {};
 let currentLevel = null;
 let currentLevelIndex = 0;
 let deaths = 0;
+let gamePhase = 1;   // 1 = Reality, 2 = Dream Phase 1, 3 = Dream Phase 2
+
+/* ── 2a. PHASE NAMES ─────────────────────────────────────────────────── */
+const DREAM_NAMES_2 = [
+  'falling again',    'the same ground',   'familiar stranger',
+  'wrong direction',  'remember this',     'behind the wall',
+  'lost footing',     'drifting',          'the floor shifts',
+  'backwards',        'not this way',      'dissolving',
+  'half remembered',  'trust nothing',     'fading path',
+  'echoes',           'the light moved',   'weightless',
+  'something changed','not here',          'unsteady',
+  'drift',            'silence',           'between steps',
+  'the path hides',   'wavering',          'hollow ground',
+  'memory breaks',    'nowhere left',      'the end was here',
+];
+const DREAM_NAMES_3 = [
+  'the cost',         'give something',    'what remains',
+  'choose',           'step here',         'burn through',
+  'no safe path',     'accept this',       'it asks',
+  'fall forward',     'the exchange',      'taken',
+  'the wrong memory', 'pay it',            'hazard',
+  'broken ground',    'lost again',        'the test',
+  'what you carried', 'let go',            'splinter',
+  'the last try',     'accept the trap',   'borrowed time',
+  'cannot avoid',     'the toll',          'everything costs',
+  'even this',        'sacrifice',         'through',
+];
 
 /* ── 3. DOM REFERENCES ───────────────────────────────────────────────── */
 const titleScreen  = document.getElementById('title-screen');
@@ -106,6 +133,20 @@ function playTone(freq, type, duration, gain, when) {
 function sfxJump()  { playTone(340,'square',0.12,0.7); playTone(480,'square',0.07,0.4); }
 function sfxLand()  { playTone(120,'square',0.08,0.6); }
 function sfxDeath() {
+  if (gamePhase === 2) {
+    const t = (audioCtx||{currentTime:0}).currentTime;
+    playTone(330,'sine',0.30,0.5);
+    playTone(220,'sine',0.45,0.4, t+0.10);
+    playTone(165,'sine',0.60,0.3, t+0.22);
+    return;
+  }
+  if (gamePhase === 3) {
+    const t = (audioCtx||{currentTime:0}).currentTime;
+    playTone(180,'sawtooth',0.12,0.9);
+    playTone(120,'sawtooth',0.20,0.8, t+0.07);
+    playTone(80, 'sawtooth',0.30,0.7, t+0.16);
+    return;
+  }
   const t = (audioCtx||{currentTime:0}).currentTime;
   playTone(220,'sawtooth',0.10,0.9);
   playTone(160,'sawtooth',0.18,0.8, t+0.07);
@@ -113,6 +154,19 @@ function sfxDeath() {
 }
 function sfxReveal(){ playTone(600,'sine',0.09,0.3); }
 function sfxGoal()  {
+  if (gamePhase === 2) {
+    const t = (audioCtx||{currentTime:0}).currentTime;
+    playTone(330,'sine',0.50,0.4);
+    playTone(440,'sine',0.60,0.3, t+0.15);
+    playTone(330,'sine',0.80,0.2, t+0.35);
+    return;
+  }
+  if (gamePhase === 3) {
+    const t = (audioCtx||{currentTime:0}).currentTime;
+    playTone(220,'triangle',0.50,0.4);
+    playTone(280,'triangle',0.65,0.3, t+0.18);
+    return;
+  }
   const t = (audioCtx||{currentTime:0}).currentTime;
   playTone(440,'sine',0.15,0.6);
   playTone(550,'sine',0.15,0.5, t+0.12);
@@ -743,6 +797,64 @@ const LEVELS = [
   buildLevel26, buildLevel27, buildLevel28, buildLevel29, buildLevel30,
 ];
 
+/* ── 7a. PHASE MODIFIERS ─────────────────────────────────────────────── */
+/*
+  Applied on top of freshly-built level data when entering Phase 2 or 3.
+  Each call receives a new object from the builder so modifications are safe.
+
+  Phase 2 — Disorientation:
+    • Every 5th individual solid tile (w=TILE_W) → slow crumble (warnFrames 90)
+    • Camera offset is inverted in updateCamera() so player sees less ahead.
+
+  Phase 3 — Designed to Lose:
+    • Fake tiles → invisible  (memorised paths gone)
+    • Crumble tiles (non-reveal) → instantCrumble
+    • Every 4th individual solid tile (w=TILE_W) → trap
+    • false-safe timers compressed to 80 / 40 frames
+*/
+function applyPhaseModifiers(level, phase) {
+  if (phase === 1) return;
+  const T  = CFG.TILE_W;
+  const tiles = level.tiles;
+
+  if (phase === 2) {
+    let sc = 0;
+    tiles.forEach(tile => {
+      if (tile.type === 'solid' && tile.w === T) {
+        sc++;
+        if (sc % 5 === 0) {
+          tile.type      = 'crumble';
+          tile.state     = 'idle';
+          tile.timer     = 0;
+          tile.warnFrames = 90;
+        }
+      }
+    });
+  }
+
+  if (phase === 3) {
+    tiles.forEach(tile => {
+      if (tile.type === 'fake') tile.type = 'invisible';
+    });
+    tiles.forEach(tile => {
+      if (tile.type === 'crumble' && !tile.reveal) tile.instantCrumble = true;
+    });
+    let sc = 0;
+    tiles.forEach(tile => {
+      if (tile.type === 'solid' && tile.w === T) {
+        sc++;
+        if (sc % 4 === 3) tile.type = 'trap';
+      }
+    });
+    tiles.forEach(tile => {
+      if (tile.type === 'false-safe') {
+        tile.fastTTL  = 80;
+        tile.fastWarn = 40;
+      }
+    });
+  }
+}
+
 /* ── 8. VIEWPORT & CAMERA ────────────────────────────────────────────── */
 let vpW = 0, vpH = 0;
 let camX = 0, camY = 0;
@@ -759,8 +871,10 @@ function resizeViewport() {
 window.addEventListener('resize', resizeViewport);
 
 function updateCamera() {
+  // Phase 2: offset reversed so player sees more of what's behind (disorienting)
+  const offsetX = gamePhase === 2 ? 0.62 : CFG.CAM_OFFSET_X;
   const target = {
-    x: state.player.x - vpW * CFG.CAM_OFFSET_X,
+    x: state.player.x - vpW * offsetX,
     y: state.player.y - vpH * 0.6,
   };
   camX += (target.x - camX) * CFG.CAM_LERP;
@@ -842,8 +956,15 @@ function buildDOM() {
 }
 
 function renderFrame() {
+  // Phase 2: slow sinusoidal world drift for disorientation
+  let driftX = 0, driftY = 0;
+  if (gamePhase === 2) {
+    const t = Date.now() / 1000;
+    driftX = Math.sin(t * 0.25) * 8;
+    driftY = Math.cos(t * 0.18) * 4;
+  }
   gameWorld.style.transform =
-    `translate(${-Math.round(camX)}px, ${-Math.round(camY)}px)`;
+    `translate(${-Math.round(camX + driftX)}px, ${-Math.round(camY + driftY)}px)`;
 
   const p = state.player;
   playerEl.style.left      = Math.round(p.x) + 'px';
@@ -1187,8 +1308,14 @@ function reachGoal() {
       currentLevelIndex++;
       loadLevel(currentLevelIndex);
     } else {
-      endDeathsEl.textContent = `Deaths: ${deaths}`;
-      endScreen.classList.remove('hidden');
+      // End of current phase
+      if (gamePhase === 1) {
+        showFakeEnding();
+      } else if (gamePhase === 2) {
+        showWakeTransition(() => startPhase3());
+      } else {
+        showTrueEnding();
+      }
     }
   }, 700);
 }
@@ -1207,17 +1334,27 @@ function loadLevel(index) {
   _jumpWasDown = false;
 
   currentLevel = LEVELS[index]();
+  applyPhaseModifiers(currentLevel, gamePhase);
 
   resizeViewport();
   buildDOM();
 
+  const offsetX = gamePhase === 2 ? 0.62 : CFG.CAM_OFFSET_X;
   state.player = initPlayer();
-  camX = currentLevel.spawnX - vpW * CFG.CAM_OFFSET_X;
+  camX = currentLevel.spawnX - vpW * offsetX;
   camY = currentLevel.spawnY - vpH * 0.6;
   camX = Math.max(0, Math.min(camX, currentLevel.worldW - vpW));
   camY = Math.max(0, Math.min(camY, currentLevel.worldH - vpH));
 
-  levelTitleEl.textContent = currentLevel.name;
+  let displayName;
+  if (gamePhase === 2) {
+    displayName = DREAM_NAMES_2[index] || '. . .';
+  } else if (gamePhase === 3) {
+    displayName = DREAM_NAMES_3[index] || '. . .';
+  } else {
+    displayName = currentLevel.name;
+  }
+  levelTitleEl.textContent = displayName;
   levelTitleEl.classList.add('visible');
   setTimeout(() => levelTitleEl.classList.remove('visible'), 2200);
 
@@ -1227,11 +1364,100 @@ function loadLevel(index) {
 function startGame() {
   deaths = 0;
   currentLevelIndex = 0;
+  gamePhase = 1;
   deathCountEl.textContent = 0;
+  document.body.classList.remove('phase-2', 'phase-3');
+  gameViewport.classList.remove('dream-1', 'dream-2');
   loadLevel(0);
 }
 
-/* ── 18. UI EVENTS ───────────────────────────────────────────────────── */
+/* ── 18. PHASE TRANSITION FUNCTIONS ─────────────────────────────────── */
+function showFakeEnding() {
+  const screen = document.getElementById('fake-end-screen');
+  screen.classList.remove('hidden');
+  // Slight delay so the opacity transition fires
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    screen.classList.add('visible');
+  }));
+  // Calm completion tones
+  try {
+    const ctx = getAudioCtx();
+    const t   = ctx.currentTime;
+    playTone(330, 'sine', 2.0, 0.35, t);
+    playTone(440, 'sine', 2.5, 0.25, t + 0.6);
+    playTone(330, 'sine', 3.0, 0.18, t + 1.6);
+  } catch (_) {}
+  // Reveal continue button after a calm pause
+  setTimeout(() => {
+    document.getElementById('fake-continue-btn').classList.add('ready');
+  }, 3600);
+}
+
+function startPhase2() {
+  const screen = document.getElementById('fake-end-screen');
+  screen.classList.add('glitching');
+  setTimeout(() => {
+    screen.classList.add('hidden');
+    screen.classList.remove('visible', 'glitching');
+    gamePhase = 2;
+    deaths = 0;
+    currentLevelIndex = 0;
+    deathCountEl.textContent = 0;
+    document.body.classList.add('phase-2');
+    gameViewport.classList.add('dream-1');
+    loadLevel(0);
+  }, 1150);
+}
+
+function showWakeTransition(callback) {
+  const screen = document.getElementById('wake-screen');
+  screen.classList.remove('hidden');
+  screen.classList.add('wake-flash');
+  // Short, sharp high-pitched tones — like jolting awake
+  try {
+    const ctx = getAudioCtx();
+    const t   = ctx.currentTime;
+    playTone(1760, 'sine', 0.12, 0.55, t);
+    playTone(880,  'sine', 0.25, 0.38, t + 0.09);
+    playTone(440,  'sine', 0.42, 0.22, t + 0.20);
+  } catch (_) {}
+  setTimeout(() => {
+    screen.classList.remove('wake-flash');
+    screen.classList.add('wake-fade');
+    setTimeout(() => {
+      screen.classList.add('hidden');
+      screen.classList.remove('wake-fade');
+      callback();
+    }, 720);
+  }, 320);
+}
+
+function startPhase3() {
+  gamePhase = 3;
+  deaths = 0;
+  currentLevelIndex = 0;
+  deathCountEl.textContent = 0;
+  document.body.classList.remove('phase-2');
+  document.body.classList.add('phase-3');
+  gameViewport.classList.remove('dream-1');
+  gameViewport.classList.add('dream-2');
+  loadLevel(0);
+}
+
+function showTrueEnding() {
+  // Quiet, sparse tones — a breath, not a fanfare
+  try {
+    const ctx = getAudioCtx();
+    const t   = ctx.currentTime;
+    playTone(220, 'sine', 3.0, 0.28, t);
+    playTone(330, 'sine', 3.5, 0.18, t + 0.4);
+    playTone(165, 'sine', 4.2, 0.12, t + 1.0);
+  } catch (_) {}
+  document.getElementById('true-end-deaths').textContent = `${deaths} falls`;
+  document.getElementById('true-end-screen').classList.remove('hidden');
+}
+
+/* ── 19. UI EVENTS ───────────────────────────────────────────────────── */
 document.getElementById('start-btn').addEventListener('click', () => {
   try { getAudioCtx(); } catch (_) {}
   titleScreen.classList.add('hidden');
@@ -1241,5 +1467,14 @@ document.getElementById('start-btn').addEventListener('click', () => {
 
 document.getElementById('restart-btn').addEventListener('click', () => {
   endScreen.classList.add('hidden');
+  startGame();
+});
+
+document.getElementById('fake-continue-btn').addEventListener('click', () => {
+  startPhase2();
+});
+
+document.getElementById('true-restart-btn').addEventListener('click', () => {
+  document.getElementById('true-end-screen').classList.add('hidden');
   startGame();
 });
