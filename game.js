@@ -96,6 +96,7 @@ document.addEventListener('keyup', e => {
 function bindTouch(el, flag) {
   el.addEventListener('pointerdown', e => {
     e.preventDefault();
+    el.setPointerCapture(e.pointerId);
     el.classList.add('pressed');
     keys[flag] = true;
   });
@@ -106,7 +107,6 @@ function bindTouch(el, flag) {
   };
   el.addEventListener('pointerup',     release);
   el.addEventListener('pointercancel', release);
-  el.addEventListener('pointerleave',  release);
 }
 
 bindTouch(touchLeft,  'left');
@@ -380,7 +380,7 @@ let camX = 0, camY = 0; // camera top-left world position
 function resizeViewport() {
   const totalH = window.innerHeight;
   const touchH = (window.matchMedia('(pointer: coarse)').matches ||
-                  window.innerWidth <= 600) ? 74 : 0;
+                  window.innerWidth <= 600) ? 108 : 0;
   vpH = Math.min(totalH - touchH, 480);
   vpW = Math.min(window.innerWidth, 640);
 
