@@ -718,6 +718,74 @@ body.phase-3 #level-title-overlay {
   border-color: #6a5840;
 }
 
+/* ── Intro Story Animation Screen ── */
+#intro-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #0a0a0f;
+  z-index: 150;
+  cursor: pointer;
+  transition: background 0.18s ease, opacity 0.5s ease;
+}
+
+#intro-text {
+  text-align: center;
+  pointer-events: none;
+  min-height: 4em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.intro-line {
+  font-size: clamp(0.78rem, 2.6vw, 1.05rem);
+  letter-spacing: 0.24em;
+  color: #d0c8b0;
+  display: block;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+}
+
+.intro-line.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.intro-line.fading {
+  opacity: 0;
+  transform: translateY(-5px);
+}
+
+.intro-line.large {
+  font-size: clamp(1.1rem, 4vw, 1.8rem);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+.intro-line.italic {
+  font-style: italic;
+}
+
+#intro-skip {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  letter-spacing: 0.35em;
+  color: #3a3428;
+  pointer-events: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 /* ── Save Toast ── */
 #save-toast {
   position: absolute;
