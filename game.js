@@ -25,11 +25,11 @@ const CFG = {
   CRUMBLE_GONE:    180,
   FAKE_DELAY:      4,
   REVEAL_STILL:    60,
-  FALSE_SAFE_TTL:  240,
-  FALSE_SAFE_WARN: 120,
+  FALSE_SAFE_TTL:  240,  // frames standing on false-safe tile before it turns lethal
+  FALSE_SAFE_WARN: 120,  // frames before warming hint appears (halfway point)
   FALSE_SAFE_GRACE: 30,
   GHOST_RADIUS:    96,
-  PATIENCE_FRAMES: 60,
+  PATIENCE_FRAMES: 60,   // frames player must stand still before a patience trigger activates
   RESPAWN_DELAY:   22,
   MASTER_VOL:      0.18,
 };
