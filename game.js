@@ -6,16 +6,17 @@
 /* ── 1. CONFIGURATION / CONSTANTS ───────────────────────────────────── */
 const CFG = {
   // Physics
-  GRAVITY:        0.55,
-  JUMP_FORCE:    -12.5,
-  JUMP_CUT:       0.45,   // velocity multiplier on jump release
-  MOVE_ACCEL:     1.4,
-  MOVE_MAX:       4.2,
-  FRICTION:       0.78,   // deceleration on ground
-  AIR_FRICTION:   0.90,
+  GRAVITY:          0.60,
+  JUMP_FORCE:      -13.0,
+  JUMP_CUT:         0.38,   // velocity multiplier on jump release (lower = shorter short-hop)
+  MOVE_ACCEL:       2.2,
+  MOVE_MAX:         4.5,
+  FRICTION:         0.70,   // deceleration on ground (lower = stops faster / tighter)
+  AIR_FRICTION:     0.88,
+  FALL_GRAV_MULT:   0.55,   // extra gravity fraction applied while airborne and falling (vy > 0); makes descent faster than ascent
 
   // Timing (frames)
-  COYOTE_FRAMES:  8,
+  COYOTE_FRAMES:  7,
   JUMP_BUFFER:    10,
 
   // Display
@@ -562,9 +563,10 @@ function updatePlayer(dt) {
     p.vy *= CFG.JUMP_CUT;
   }
 
-  // --- Gravity ---
+  // --- Gravity (extra pull while airborne and falling so descent is faster than ascent) ---
   p.vy += CFG.GRAVITY;
-  if (p.vy > 18) p.vy = 18; // terminal velocity
+  if (!p.onGround && p.vy > 0) p.vy += CFG.GRAVITY * CFG.FALL_GRAV_MULT; // skip when grounded to avoid fighting with floor collision
+  if (p.vy > 20) p.vy = 20; // terminal velocity
 
   // --- Move X then resolve collisions ---
   const prevOnGround = p.onGround;
