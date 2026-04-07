@@ -1322,10 +1322,20 @@ function resetTraps() {
 /* ── 15. GOAL / LEVEL COMPLETE ───────────────────────────────────────── */
 let goalReached = false;
 
+let _toastTimer = null;
+function showSaveToast() {
+  const toast = document.getElementById('save-toast');
+  clearTimeout(_toastTimer);
+  toast.classList.add('show');
+  _toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
 function reachGoal() {
   if (goalReached) return;
   goalReached = true;
   sfxGoal();
+  saveProgress();
+  showSaveToast();
 
   setTimeout(() => {
     cancelAnimationFrame(state.rafId);
@@ -1532,7 +1542,7 @@ document.getElementById('true-restart-btn').addEventListener('click', () => {
 /* Show CONTINUE button on title screen if saved progress exists */
 (function initTitleScreen() {
   const saved = loadProgress();
-  if (saved) {
+  if (saved && (saved.phase > 1 || saved.levelIndex > 0)) {
     continueBtn.classList.remove('hidden');
   }
 }());
