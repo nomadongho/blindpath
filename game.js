@@ -21,6 +21,7 @@ const CFG = {
   PLAYER_H:        22,
   CAM_LERP:        0.12,
   CAM_OFFSET_X:    0.38,
+  CAM_OFFSET_Y:    0.60,
   CRUMBLE_WARN:    30,
   CRUMBLE_GONE:    180,
   FAKE_DELAY:      4,
@@ -900,7 +901,7 @@ function updateCamera() {
   // Phase 2: offset reversed so player sees more of what's behind (disorienting)
   const offsetX = gamePhase === 2 ? 0.62 : CFG.CAM_OFFSET_X;
   const offsetY = (currentLevel.initialCamOffsetY && !state.hasJumped)
-    ? currentLevel.initialCamOffsetY : 0.6;
+    ? currentLevel.initialCamOffsetY : CFG.CAM_OFFSET_Y;
   const target = {
     x: state.player.x - vpW * offsetX,
     y: state.player.y - vpH * offsetY,
@@ -1382,7 +1383,7 @@ function loadLevel(index) {
   buildDOM();
 
   const offsetX = gamePhase === 2 ? 0.62 : CFG.CAM_OFFSET_X;
-  const offsetY = currentLevel.initialCamOffsetY ?? 0.6;
+  const offsetY = currentLevel.initialCamOffsetY ?? CFG.CAM_OFFSET_Y;
   state.player = initPlayer();
   state.hasJumped = false;
   camX = currentLevel.spawnX - vpW * offsetX;
