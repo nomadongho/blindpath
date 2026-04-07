@@ -35,7 +35,11 @@ const CFG = {
   FAKE_DELAY:     4,    // frames before fake tile disappears
   REVEAL_STILL:   60,   // frames standing still before reveal tile shows
   FALSE_SAFE_TTL: 200,  // frames before false-safe becomes dangerous
+  FALSE_SAFE_WARN: 100, // frames before warming hint appears (halfway point)
+  FALSE_SAFE_GRACE: 30, // frames between danger warning and actual kill
   TRIGGER_DIST:   40,   // pixels from trigger zone to activate triggered tile
+  REVEAL_RADIUS:  120,  // px proximity for standing-still reveal trigger
+  GHOST_RADIUS:    96,  // px proximity before trigger bridge ghost appears
 
   // Respawn
   RESPAWN_DELAY:  22,   // ~0.37s at 60fps
@@ -213,7 +217,7 @@ function buildLevel1Tiles() {
   }
   function falseSafe(x, y, w, h) {
     tiles.push({ type: 'false-safe', x, y, w: w || T, h: h || H, id: tiles.length,
-                 timer: 0, dangerous: false });
+                 timer: 0, dangerous: false, dangerTimer: 0, _warming: false });
   }
   function triggered(x, y, w, h, trigId) {
     tiles.push({ type: 'trigger', x, y, w: w || T, h: h || H, id: tiles.length,
@@ -237,17 +241,20 @@ function buildLevel1Tiles() {
 
   // ── ZONE 2 – First betrayal: fake floor (x: 720–900) ──────────────
   // A visual "safe" looking wide floor — it's fake!
-  fake(720, 380, 160, H);    // looks solid, falls through
-  // The real path: a small invisible bridge above the pit
-  // (player must jump over the fake section or find the invisible bridge below)
-  solid(900, 380, T, H);     // safe landing after the trick
-  // Hint for the curious: invisible tiles AT the same height as fake
-  invisible(720, 380, 64, H); // overlapping — actually solid layer underneath
-  // Real safe path slightly higher — invisible blocks
-  invisible(750, 364, 96, H);
+  fake(720, 380, 160, H);    // looks solid, falls through into spikes
+  // The real path: a single invisible bridge one step above the fake floor.
+  // Player must jump from the previous solid platform to discover it.
+  // Once standing on "nothing" at y=364, the aha moment clicks.
+  // Width = fake floor width (160) + 64 px of overhang to reach the Zone-3 solid.
+  invisible(720, 364, 160 + 64, H); // spans the full fake section at one tile-height above
+  solid(900, 380, T, H);     // visible safe beacon on the far side
 
   // ── ZONE 3 – Rising platforms + crumble mix (x: 940–1200) ─────────
-  solid(940, 360, T, H);
+  // First solid placed at y=364 to match invisible bridge height so the
+  // transition from Zone 2 is geometrically seamless (no X-axis blocking).
+  // x=944 aligns exactly with the invisible bridge end (720 + 224) so the
+  // player steps off the bridge directly onto this platform.
+  solid(944, 364, T, H);
   crumble(980, 340, T, H);   // crumble mid-air step
   solid(1020, 320, T, H);
   crumble(1060, 320, T, H);  // back-to-back crumble
@@ -276,16 +283,18 @@ function buildLevel1Tiles() {
   // (spikes defined separately below)
 
   // ── ZONE 6 – Reverse expectation (x: 1830–2200) ───────────────────
-  // Visible platforms are FAKE — invisible ones are REAL
-  // After zone 2 taught that invisible=real, this reinforces it
+  // Visible platforms are FAKE — invisible ones are REAL.
+  // After zone 2 taught that invisible=real, this reinforces it.
+  // Invisible staircase starts only 16 px below floor level (y=396) so
+  // the catch is shallow and discoverable without a death-by-gap.
   fake(1830, 380, T, H);     // looks solid — trap!
   fake(1870, 360, T, H);
   fake(1910, 340, T, H);
-  // The real invisible stair
-  invisible(1830, 400, T, H); // too low — real path forces creativity
-  invisible(1875, 384, T, H);
-  invisible(1920, 368, T, H);
-  invisible(1965, 352, T, H);
+  // The real invisible staircase (starts just below floor, then ascends)
+  invisible(1830, 396, T, H);
+  invisible(1875, 380, T, H);
+  invisible(1920, 364, T, H);
+  invisible(1965, 348, T, H);
   solid(2010, 336, T, H);     // solid landing visible — safe reward
 
   solid(2050, 336, T, H);
@@ -294,9 +303,11 @@ function buildLevel1Tiles() {
   solid(2170, 396, 80, H);
 
   // ── ZONE 7 – Triggered path (x: 2260–2520) ────────────────────────
-  // Player must jump near a specific point to activate hidden bridge
+  // Approaching the gap activates the hidden bridge.
+  // As the player nears, a ghost silhouette of the bridge fades in,
+  // hinting that proximity matters — solidifies on contact with the zone.
   solid(2260, 396, T, H);    // approach platform
-  // Trigger zone: jumping near x=2295 activates the tiles
+  // Trigger zone: entering near x=2268 activates the bridge
   triggered(2300, 396, T, H,  'T1');
   triggered(2332, 396, T, H,  'T1');
   triggered(2364, 396, T, H,  'T1');
@@ -305,15 +316,19 @@ function buildLevel1Tiles() {
   solid(2470, 396, 80, H);
 
   // ── ZONE 8 – Final gauntlet: crumble + fake mix (x: 2570–2900) ────
+  // All tiles at the same height (y=380) — the challenge is now purely
+  // about remembering WHICH type each tile is, not WHERE to go.
+  // Order tests all three learned rules: crumble → fake → crumble → solid
+  // → crumble → crumble → invisible → solid descent.
   crumble(2570, 380, T, H);
-  fake(2610, 364, T, H);
-  crumble(2650, 348, T, H);
-  solid(2690, 348, T, H);    // reward — solid rest
-  crumble(2730, 348, T, H);
-  crumble(2770, 348, T, H);
-  invisible(2810, 348, T, H); // one last invisible step
-  solid(2850, 348, T, H);
-  solid(2890, 364, T, H);
+  fake(2610, 380, T, H);
+  crumble(2650, 380, T, H);
+  solid(2690, 380, T, H);    // reward — solid rest
+  crumble(2730, 380, T, H);
+  crumble(2770, 380, T, H);
+  invisible(2810, 380, T, H); // one last invisible step
+  solid(2850, 380, T, H);
+  solid(2890, 380, T, H);
   solid(2930, 380, 100, H);
 
   // ── GOAL (x: 3050) ────────────────────────────────────────────────
@@ -340,14 +355,14 @@ function buildLevel1Spikes() {
   // False safe zone pit (zone 5)
   spike(1620, 400, 6);
 
-  // Pit under zone 6 fake path
-  spike(1830, 420, 10);
+  // Pit under zone 6 fake path (raised to match shallower invisible catch)
+  spike(1830, 416, 10);
 
   // Pit under triggered path approach
   spike(2300, 416, 8);
 
-  // Final gauntlet pit
-  spike(2570, 396, 14);
+  // Final gauntlet pit (moved 4 px down so spike tips clear platform bottoms)
+  spike(2570, 400, 14);
 
   return spikes;
 }
@@ -473,9 +488,11 @@ function renderFrame() {
     } else if (tile.type === 'reveal') {
       el.classList.toggle('visible', tile.visible);
     } else if (tile.type === 'false-safe') {
-      el.classList.toggle('danger', tile.dangerous);
+      el.classList.toggle('danger',  tile.dangerous);
+      el.classList.toggle('warming', !!tile._warming && !tile.dangerous);
     } else if (tile.type === 'trigger') {
       el.classList.toggle('active', tile.active);
+      el.classList.toggle('ghost',  !tile.active && !!tile._near);
     }
   });
 }
@@ -700,8 +717,10 @@ function updateTraps(p) {
 
     // ── Reveal ───────────────────────────────────────────────────────
     if (tile.type === 'reveal') {
-      // Reveal if player is standing still AND within horizontal vicinity
-      const withinX = p.x + pw > tile.x - 10 && p.x < tile.x + tile.w + 10;
+      // Reveal if player is standing still AND within the reveal zone.
+      // Use a wide radius (120 px) so standing on the edge platform at
+      // the gap's left side reliably triggers the hidden path.
+      const withinX = p.x + pw > tile.x - CFG.REVEAL_RADIUS && p.x < tile.x + tile.w + CFG.REVEAL_RADIUS;
       if (p.onGround && withinX && p.stillTimer >= CFG.REVEAL_STILL) {
         if (!tile.visible) {
           tile.visible = true;
@@ -722,15 +741,29 @@ function updateTraps(p) {
       );
       if (onThis) {
         tile.timer++;
+        // Warming hint at the halfway point — subtle colour shift signals danger
+        if (tile.timer >= CFG.FALSE_SAFE_WARN && !tile._warming && !tile.dangerous) {
+          tile._warming = true;
+        }
+        // Become dangerous at TTL — CSS red glow fires, grace period begins
         if (tile.timer >= CFG.FALSE_SAFE_TTL && !tile.dangerous) {
           tile.dangerous = true;
+          tile.dangerTimer = 0;
+          tile._warming = false;
         }
+        // Kill only after the grace window so the visual warning has time to read
         if (tile.dangerous) {
-          killPlayer();
+          tile.dangerTimer++;
+          if (tile.dangerTimer >= CFG.FALSE_SAFE_GRACE) {
+            killPlayer();
+          }
         }
       } else {
         // Reset timer when off the tile
-        if (!tile.dangerous) tile.timer = Math.max(0, tile.timer - 2);
+        if (!tile.dangerous) {
+          tile.timer = Math.max(0, tile.timer - 2);
+          if (tile.timer < CFG.FALSE_SAFE_WARN) tile._warming = false;
+        }
       }
     }
 
@@ -740,10 +773,15 @@ function updateTraps(p) {
       LEVEL_1_TRIGGERS.forEach(zone => {
         if (zone.id !== tile.trigId) return;
         const inZone = rectOverlap(p.x, p.y, pw, ph, zone.x, zone.y, zone.w, zone.h);
-        // Activate if player jumps inside trigger zone
-        if (inZone && p.vy < 0) {
+        // Activate on any contact with the trigger zone (no jump required).
+        // A ghost outline fades in as the player approaches, so they can
+        // see the bridge silhouette before they understand how to summon it.
+        if (inZone) {
           tile.active = true;
         }
+        // Ghost visibility: show faint outline when player is within 96 px
+        const nearZone = p.x + pw > zone.x - CFG.GHOST_RADIUS && p.x < zone.x + zone.w + CFG.GHOST_RADIUS;
+        tile._near = nearZone;
       });
     }
 
@@ -819,9 +857,12 @@ function resetTraps() {
     if (tile.type === 'false-safe') {
       tile.timer = 0;
       tile.dangerous = false;
+      tile.dangerTimer = 0;
+      tile._warming = false;
     }
     if (tile.type === 'trigger') {
       tile.active = false;
+      tile._near  = false;
     }
     // Reveal tiles stay visible once discovered (by design — fairness)
   });

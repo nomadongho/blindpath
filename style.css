@@ -196,6 +196,12 @@ html, body {
   transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 
+.tile-false-safe.warming {
+  background: #3d2e20;
+  border-top: 2px solid #7a5a3a;
+  transition: background 0.5s, border-color 0.5s;
+}
+
 .tile-false-safe.danger {
   background: #4a1a1a;
   border-top: 2px solid #8a2a2a;
@@ -207,6 +213,10 @@ html, body {
   border-top: 2px solid #3a3a5a;
   opacity: 0;
   transition: opacity 0.2s;
+}
+
+.tile-trigger.ghost {
+  opacity: 0.10;
 }
 
 .tile-trigger.active {
