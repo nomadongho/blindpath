@@ -383,15 +383,15 @@ function buildLevel8() {
 function buildLevel9() {
   const {S,F,I,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40,  100, 200, 16);
-  S(40,  116, 16,  400);    // left wall
-  S(208, 116, 16,  400);    // right wall
+  S(40,  116, 16,  600);    // left wall (extended deeper)
+  S(208, 116, 16,  600);    // right wall (extended deeper)
   I(56,  280, 152, 16);     // invisible mid-shaft landing (the real safe spot)
   S(224, 280, 200, 16);
-  F(56,  500, 152, 16);     // fake floor at the very bottom
-  spike(56, 516, 9);
+  F(56,  700, 152, 16);     // fake floor — hidden below initial viewport
+  spike(56, 716, 9);
   S(424, 280, 160, 16);
   G(544, 252, 32, 28);
-  return {name:'09 · The False Bottom', worldW:680, worldH:580, spawnX:80, spawnY:78,
+  return {name:'09 · The False Bottom', worldW:680, worldH:780, spawnX:80, spawnY:78,
           initialCamOffsetY: 0.9,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
