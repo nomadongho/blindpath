@@ -792,7 +792,7 @@ body.phase-3 #level-title-overlay {
   background: #0a0a0f;
   z-index: 150;
   cursor: pointer;
-  transition: background 0.18s ease, opacity 0.5s ease;
+  transition: background 0.18s ease;
 }
 
 #intro-text {
