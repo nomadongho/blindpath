@@ -24,11 +24,20 @@ const CFG = {
   CAM_OFFSET_Y:    0.60,
   CRUMBLE_WARN:    30,
   CRUMBLE_GONE:    180,
+  CRUMBLE_WARN_FAST: 55,        // faster crumble warn for harder levels (L10)
+  REVEAL_CRUMBLE_WARN: 22,      // warn frames for reveal-crumble tiles (L15, L28)
   FAKE_DELAY:      4,
   REVEAL_STILL:    60,
   FALSE_SAFE_TTL:  240,  // frames standing on false-safe tile before it turns lethal
   FALSE_SAFE_WARN: 120,  // frames before warming hint appears (halfway point)
   FALSE_SAFE_GRACE: 30,
+  FALSE_SAFE_FAST_TTL:  100,    // compressed timer for L25
+  FALSE_SAFE_FAST_WARN:  50,    // warn for compressed timer
+  PHASE2_CRUMBLE_FREQ:    4,    // every Nth solid tile crumbles in Phase 2
+  PHASE2_CRUMBLE_WARN:   70,    // warn frames for Phase-2 induced crumble
+  PHASE3_TRAP_FREQ:       3,    // every Nth solid tile becomes a trap in Phase 3
+  PHASE3_FALSE_SAFE_TTL:  60,   // false-safe TTL compression in Phase 3
+  PHASE3_FALSE_SAFE_WARN: 30,   // false-safe warn compression in Phase 3
   GHOST_RADIUS:    96,
   PATIENCE_FRAMES: 90,   // frames player must stand still before a patience trigger activates
   RESPAWN_DELAY:   22,
@@ -406,7 +415,7 @@ function buildLevel10() {
   const {S,C,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
   const sc = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-                                   id:tiles.length,state:'idle',timer:0,warnFrames:55});
+                                   id:tiles.length,state:'idle',timer:0,warnFrames:CFG.CRUMBLE_WARN_FAST});
   sc(160,400); sc(210,400); sc(262,400);
   C(314,400);
   sc(366,400); sc(418,400);
@@ -495,7 +504,7 @@ function buildLevel15() {
   S(40, 400, 80, 16);
   const RC = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
                                    id:tiles.length,state:'idle',timer:0,
-                                   reveal:true,visible:false,warnFrames:22});
+                                   reveal:true,visible:false,warnFrames:CFG.REVEAL_CRUMBLE_WARN});
   RC(170,400); RC(210,400); RC(250,400); RC(290,400); RC(330,400); RC(370,400);
   S(410, 400, 80, 16);
   RC(540,400); RC(580,400); RC(620,400); RC(660,400);
@@ -683,7 +692,7 @@ function buildLevel25() {
   S(40, 400, 80, 16);
   tiles.push({type:'false-safe',x:180,y:400,w:480,h:16,id:tiles.length,
               timer:0,dangerous:false,dangerTimer:0,_warming:false,
-              fastTTL:100, fastWarn:50});
+              fastTTL:CFG.FALSE_SAFE_FAST_TTL, fastWarn:CFG.FALSE_SAFE_FAST_WARN});
   S(700, 400, 160, 16);
   G(818, 372, 32, 28);
   spike(120, 420, 4);
@@ -730,7 +739,7 @@ function buildLevel28() {
   const {S,C,TR,G,trig,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
   const RC = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-                                   id:tiles.length,state:'idle',timer:0,reveal:true,visible:false,warnFrames:22});
+                                   id:tiles.length,state:'idle',timer:0,reveal:true,visible:false,warnFrames:CFG.REVEAL_CRUMBLE_WARN});
   RC(170,400); RC(210,400); RC(250,400); RC(290,400);
   S(330,400,60,16);
   trig('G1', 340, 340, 70, 80, CFG.PATIENCE_FRAMES);
@@ -861,11 +870,11 @@ function applyPhaseModifiers(level, phase) {
     tiles.forEach(tile => {
       if (tile.type === 'solid' && tile.w === T) {
         sc++;
-        if (sc % 4 === 0) {
+        if (sc % CFG.PHASE2_CRUMBLE_FREQ === 0) {
           tile.type      = 'crumble';
           tile.state     = 'idle';
           tile.timer     = 0;
-          tile.warnFrames = 70;
+          tile.warnFrames = CFG.PHASE2_CRUMBLE_WARN;
         }
       }
     });
@@ -882,13 +891,13 @@ function applyPhaseModifiers(level, phase) {
     tiles.forEach(tile => {
       if (tile.type === 'solid' && tile.w === T) {
         sc++;
-        if (sc % 3 === 0) tile.type = 'trap';
+        if (sc % CFG.PHASE3_TRAP_FREQ === 0) tile.type = 'trap';
       }
     });
     tiles.forEach(tile => {
       if (tile.type === 'false-safe') {
-        tile.fastTTL  = 60;
-        tile.fastWarn = 30;
+        tile.fastTTL  = CFG.PHASE3_FALSE_SAFE_TTL;
+        tile.fastWarn = CFG.PHASE3_FALSE_SAFE_WARN;
       }
     });
   }
