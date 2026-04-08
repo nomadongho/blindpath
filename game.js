@@ -689,6 +689,7 @@ function buildLevel26() {
   S(40, 400, 160, 16);
   dzone(240, 378, 48, 38, true);            // left zone — looks like trigger, is deadly
   trig('K1', 340, 378, 48, 38, 0, true);   // right zone — same glow, actually helpful
+  S(340, 400, 48, 16);                      // ground under trigger so player doesn't fall after activating
   TR(390,400,32,16,'K1'); TR(422,400,32,16,'K1');
   TR(454,400,32,16,'K1'); TR(486,400,32,16,'K1');
   TR(518,400,32,16,'K1');
