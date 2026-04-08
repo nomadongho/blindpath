@@ -50,6 +50,9 @@ let currentLevelIndex = 0;
 let deaths = 0;
 let gamePhase = 1;   // 1 = Reality, 2 = Dream Phase 1, 3 = Dream Phase 2
 
+let devMode      = false;
+let devShowTraps = false;
+
 /* ── 2b. PROGRESS PERSISTENCE ───────────────────────────────────────── */
 const SAVE_KEY = 'blindpath_progress';
 
@@ -114,6 +117,7 @@ const touchLeft    = document.getElementById('touch-left');
 const touchRight   = document.getElementById('touch-right');
 const touchJump    = document.getElementById('touch-jump');
 const continueBtn  = document.getElementById('continue-btn');
+const devTrapToggle = document.getElementById('dev-trap-toggle');
 
 /* ── 4. INPUT ────────────────────────────────────────────────────────── */
 const keys = { left: false, right: false, jump: false };
@@ -1036,9 +1040,12 @@ function buildDOM() {
   });
 
   currentLevel.dangerZones.forEach(zone => {
-    if (!zone.glow) return;
     const el = document.createElement('div');
-    el.className = 'zone-glow';
+    if (zone.glow) {
+      el.className = 'zone-glow';
+    } else {
+      el.className = 'dev-danger-zone';
+    }
     el.style.cssText = `left:${zone.x}px;top:${zone.y}px;width:${zone.w}px;height:${zone.h}px;`;
     gameWorld.appendChild(el);
   });
@@ -1476,6 +1483,7 @@ function loadLevel(index) {
 
   resizeViewport();
   buildDOM();
+  gameWorld.classList.toggle('dev-show-traps', devShowTraps);
 
   const offsetX = gamePhase === 2 ? 0.62 : CFG.CAM_OFFSET_X;
   const offsetY = currentLevel.initialCamOffsetY ?? CFG.CAM_OFFSET_Y;
@@ -1771,6 +1779,7 @@ function initiateGameStart() {
   titleScreen.classList.add('hidden');
   showIntroAnimation(() => {
     gameWrapper.classList.remove('hidden');
+    if (devMode) devTrapToggle.classList.remove('hidden');
     startGame();
   });
 }
@@ -1803,6 +1812,7 @@ continueBtn.addEventListener('click', () => {
   }
   titleScreen.classList.add('hidden');
   gameWrapper.classList.remove('hidden');
+  if (devMode) devTrapToggle.classList.remove('hidden');
   loadLevel(currentLevelIndex);
 });
 
@@ -1827,4 +1837,57 @@ document.getElementById('true-restart-btn').addEventListener('click', () => {
     continueBtn.classList.remove('hidden');
   }
 }());
+
+/* ── 20. DEVELOPER MODE ──────────────────────────────────────────────── */
+const DEV_PASSWORD = 'show the way';
+
+function openDevModal() {
+  const modal = document.getElementById('dev-modal');
+  const input = document.getElementById('dev-password-input');
+  const error = document.getElementById('dev-modal-error');
+  input.value = '';
+  error.classList.add('hidden');
+  modal.classList.remove('hidden');
+  // Delay focus to avoid ghost events
+  setTimeout(() => input.focus(), 80);
+}
+
+function closeDevModal() {
+  document.getElementById('dev-modal').classList.add('hidden');
+}
+
+function confirmDevPassword() {
+  const input = document.getElementById('dev-password-input');
+  const error = document.getElementById('dev-modal-error');
+  if (input.value.trim().toLowerCase() === DEV_PASSWORD) {
+    devMode = true;
+    closeDevModal();
+    // Show the toggle button if game is running
+    if (!gameWrapper.classList.contains('hidden')) {
+      devTrapToggle.classList.remove('hidden');
+    }
+  } else {
+    error.classList.remove('hidden');
+    input.value = '';
+    input.focus();
+  }
+}
+
+document.getElementById('dev-btn').addEventListener('click', openDevModal);
+
+document.getElementById('dev-modal-confirm').addEventListener('click', confirmDevPassword);
+
+document.getElementById('dev-modal-cancel').addEventListener('click', closeDevModal);
+
+document.getElementById('dev-password-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmDevPassword();
+  if (e.key === 'Escape') closeDevModal();
+});
+
+devTrapToggle.addEventListener('click', () => {
+  devShowTraps = !devShowTraps;
+  devTrapToggle.textContent = devShowTraps ? 'TRAPS: ON' : 'TRAPS: OFF';
+  devTrapToggle.classList.toggle('active', devShowTraps);
+  gameWorld.classList.toggle('dev-show-traps', devShowTraps);
+});
 
