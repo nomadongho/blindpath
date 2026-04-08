@@ -22,6 +22,20 @@
       <button id="start-btn">START</button>
       <button id="continue-btn" class="hidden">CONTINUE</button>
     </div>
+    <button id="dev-btn" aria-label="Developer mode">···</button>
+  </div>
+
+  <!-- Developer Mode Password Modal -->
+  <div id="dev-modal" class="hidden">
+    <div id="dev-modal-box">
+      <div id="dev-modal-title">developer mode</div>
+      <input type="text" id="dev-password-input" placeholder="enter password" autocomplete="off" spellcheck="false" />
+      <div id="dev-modal-error" class="hidden">incorrect password</div>
+      <div id="dev-modal-btns">
+        <button id="dev-modal-confirm">confirm</button>
+        <button id="dev-modal-cancel">cancel</button>
+      </div>
+    </div>
   </div>
 
   <!-- Game Container -->
@@ -31,6 +45,7 @@
       <!-- UI overlays -->
       <div id="level-title-overlay"></div>
       <div id="death-counter">✝ <span id="death-count">0</span></div>
+      <button id="dev-trap-toggle" class="hidden" aria-label="Toggle trap visibility">TRAPS: OFF</button>
       <div id="flash-overlay"></div>
       <div id="save-toast">saved</div>
     </div>

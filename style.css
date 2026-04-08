@@ -867,5 +867,169 @@ body.phase-3 #level-title-overlay {
 #save-toast.show {
   opacity: 1;
 }
-body.phase-2 #save-toast { color: #3a4a70; }
-body.phase-3 #save-toast { color: #604040; }
+/* ── Developer Mode ── */
+#dev-btn {
+  position: absolute;
+  bottom: 14px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: #2a2520;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+  outline: none;
+  padding: 4px 6px;
+  transition: color 0.2s;
+}
+#dev-btn:hover,
+#dev-btn:focus {
+  color: #5a5040;
+}
+
+#dev-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 15, 0.88);
+  z-index: 300;
+}
+
+#dev-modal-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 32px 40px;
+  border: 1px solid #3a3028;
+  background: #0a0a0f;
+  text-align: center;
+  min-width: 260px;
+}
+
+#dev-modal-title {
+  font-size: 0.85rem;
+  letter-spacing: 0.25em;
+  color: #7a7060;
+  text-transform: lowercase;
+}
+
+#dev-password-input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid #3a3028;
+  border-bottom: 1px solid #6a5f40;
+  color: #c8b870;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  padding: 6px 10px;
+  outline: none;
+  text-align: center;
+}
+#dev-password-input::placeholder {
+  color: #3a3028;
+}
+
+#dev-modal-error {
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  color: #8a2a2a;
+}
+
+#dev-modal-btns {
+  display: flex;
+  gap: 14px;
+}
+
+#dev-modal-confirm,
+#dev-modal-cancel {
+  padding: 7px 22px;
+  background: transparent;
+  border: 1px solid #3a3028;
+  color: #7a7060;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  text-transform: lowercase;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+#dev-modal-confirm:hover,
+#dev-modal-confirm:focus,
+#dev-modal-cancel:hover,
+#dev-modal-cancel:focus {
+  background: #2a2018;
+  color: #c8b870;
+  border-color: #6a5840;
+}
+
+#dev-trap-toggle {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: #5a5040;
+  background: transparent;
+  border: 1px solid #2a2018;
+  padding: 2px 6px;
+  cursor: pointer;
+  outline: none;
+  z-index: 30;
+  text-transform: uppercase;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+#dev-trap-toggle:hover,
+#dev-trap-toggle:focus {
+  color: #c8b870;
+  border-color: #6a5840;
+  background: #1a1510;
+}
+#dev-trap-toggle.active {
+  color: #c8b870;
+  border-color: #5a4e30;
+}
+
+/* Dev mode — trap reveal overlays */
+#game-world.dev-show-traps .tile-fake {
+  background: rgba(200, 120, 20, 0.55) !important;
+  border-top: 2px solid #ff9020 !important;
+}
+#game-world.dev-show-traps .tile-invisible {
+  opacity: 0.45 !important;
+  background: rgba(40, 80, 200, 0.4) !important;
+  border-top: 2px solid #4878e8 !important;
+}
+#game-world.dev-show-traps .tile-trap {
+  background: rgba(160, 20, 20, 0.75) !important;
+  border-top: 2px solid #e03030 !important;
+  box-shadow: 0 0 6px rgba(220, 40, 40, 0.5) !important;
+}
+#game-world.dev-show-traps .tile-false-safe {
+  outline: 2px solid rgba(220, 180, 0, 0.7);
+  box-shadow: 0 0 8px rgba(220, 180, 0, 0.35) !important;
+}
+/* Non-glow danger zones rendered for dev mode */
+.dev-danger-zone {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+  display: none;
+  background: rgba(180, 30, 30, 0.25);
+  border: 1px dashed rgba(220, 60, 60, 0.5);
+}
+#game-world.dev-show-traps .dev-danger-zone {
+  display: block;
+}
+/* Override dark-mode opacity for trap types in dev mode */
+#game-world.dark-mode.dev-show-traps .tile-fake,
+#game-world.dark-mode.dev-show-traps .tile-invisible,
+#game-world.dark-mode.dev-show-traps .tile-trap,
+#game-world.dark-mode.dev-show-traps .tile-false-safe {
+  opacity: 0.6 !important;
+}
