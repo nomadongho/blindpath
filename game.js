@@ -41,17 +41,7 @@ const CFG = {
   GHOST_RADIUS:    96,
   PATIENCE_FRAMES: 90,   // frames player must stand still before a patience trigger activates
   RESPAWN_DELAY:   22,
-  MASTER_VOL:      0.18,
 };
-
-/* ── 1b. VOLUME PERSISTENCE ──────────────────────────────────────────── */
-const VOL_KEY = 'blindpath_vol';
-(function initVolume() {
-  try {
-    const stored = localStorage.getItem(VOL_KEY);
-    if (stored !== null) CFG.MASTER_VOL = Math.max(0, Math.min(1, parseFloat(stored)));
-  } catch (_) {}
-}());
 
 /* ── 2. STATE ────────────────────────────────────────────────────────── */
 let state = {};
@@ -169,7 +159,7 @@ function playTone(freq, type, duration, gain, when) {
     osc.connect(vol); vol.connect(ctx.destination);
     osc.type = type || 'square';
     osc.frequency.setValueAtTime(freq, t);
-    vol.gain.setValueAtTime(gain * CFG.MASTER_VOL, t);
+    vol.gain.setValueAtTime(gain, t);
     vol.gain.exponentialRampToValueAtTime(0.0001, t + duration);
     osc.start(t); osc.stop(t + duration);
   } catch (_) {}
@@ -1838,24 +1828,3 @@ document.getElementById('true-restart-btn').addEventListener('click', () => {
   }
 }());
 
-/* ── 20. VOLUME SLIDER ───────────────────────────────────────────────── */
-(function initVolSlider() {
-  const slider  = document.getElementById('vol-slider');
-  const icon    = document.getElementById('vol-icon');
-  if (!slider || !icon) return;
-
-  const DEFAULT_VOL = 0.18;
-
-  function applyVol(v) {
-    CFG.MASTER_VOL   = v;
-    slider.value     = v;
-    icon.textContent = v === 0 ? '♪̶' : '♪';
-    try { localStorage.setItem(VOL_KEY, String(v)); } catch (_) {}
-  }
-
-  applyVol(CFG.MASTER_VOL);
-
-  slider.addEventListener('input', () => applyVol(parseFloat(slider.value)));
-
-  icon.addEventListener('click', () => applyVol(CFG.MASTER_VOL > 0 ? 0 : DEFAULT_VOL));
-}());
