@@ -262,575 +262,650 @@ function makeLevelParts() {
   /* danger zone helper (feet contact = death) */
   const dzone = (x,y,w,h,glow) => dangerZones.push({x,y,w,h,glow:!!glow});
 
+  /* compound tile helpers (shared across multiple levels) */
+  const RC = (x,y) => tiles.push({type:'crumble',x,y,w:T,h:H,
+    id:tiles.length,state:'idle',timer:0,reveal:true,visible:false,warnFrames:CFG.REVEAL_CRUMBLE_WARN});
+  const fc = (x,y) => tiles.push({type:'crumble',x,y,w:T,h:H,
+    id:tiles.length,state:'idle',timer:0,warnFrames:CFG.CRUMBLE_WARN_FAST});
+  const ic = (x,y) => tiles.push({type:'crumble',x,y,w:T,h:H,
+    id:tiles.length,state:'idle',timer:0,instantCrumble:true});
+  const FS = (x,y,w,h,fast) => {
+    const t = {type:'false-safe',x,y,w:w||T,h:h||H,id:tiles.length,
+               timer:0,dangerous:false,dangerTimer:0,_warming:false};
+    if(fast){ t.fastTTL = CFG.FALSE_SAFE_FAST_TTL; t.fastWarn = CFG.FALSE_SAFE_FAST_WARN; }
+    tiles.push(t);
+  };
+
   return { tiles,spikes,triggers,gravityZones,dangerZones,
-           S,F,I,C,R,Z,TR,TP,SL,G,spike,trig,grav,dzone };
+           S,F,I,C,R,Z,TR,TP,SL,G,spike,trig,grav,dzone,RC,fc,ic,FS };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
    PHASE 1 — INTRODUCTION (Levels 1–5)
-   One trap at a time. Build baseline trust.
+   One mechanic per level — but every level has a sting.
    ═══════════════════════════════════════════════════════════════════════ */
 
-// ── Level 1 "One Step" — flat corridor, no traps. Learn controls & exit.
+// ── Level 1 "One Step" — long safe corridor; one fake tile right before the goal.
 function buildLevel1() {
-  const {S,G,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40, 400, 680, 16);
-  G(668, 372, 32, 28);
-  return {name:'01 · One Step', worldW:800, worldH:480, spawnX:50, spawnY:378,
-          tiles, spikes, triggers, gravityZones, dangerZones};
-}
-
-// ── Level 2 "The Gap" — visible spike pit; must jump to cross.
-function buildLevel2() {
-  const {S,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40,  400, 180, 16);
-  S(400, 400, 340, 16);
+  const {S,F,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 540, 16);
+  F(580, 400);
+  S(620, 400, 120, 16);
   G(698, 372, 32, 28);
-  spike(220, 410, 11);
-  return {name:'02 · The Gap', worldW:840, worldH:480, spawnX:50, spawnY:378,
+  spike(580, 410, 2);
+  return {name:'01 · One Step', worldW:840, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 3 "First Lie" — multiple fake tiles mixed with solids (identical look).
+// ── Level 2 "The Gap" — spike pit to jump; the safe landing zone is crumble. Keep moving.
+function buildLevel2() {
+  const {S,C,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 120, 16);
+  spike(160, 410, 9);
+  C(304,400); C(336,400); C(368,400); C(400,400); C(432,400); C(464,400);
+  S(496, 400, 200, 16);
+  G(654, 372, 32, 28);
+  return {name:'02 · The Gap', worldW:760, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 3 "First Lie" — irregular fake/solid pattern across two separate sections.
 function buildLevel3() {
   const {S,F,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40, 400, 160, 16);
-  F(200, 400);        // fake
-  F(232, 400);        // fake
-  S(264, 400);        // solid — safe
-  F(296, 400);        // fake
-  S(328, 400);        // solid — safe
-  F(360, 400);        // fake
-  S(396, 400, 280, 16);
-  G(634, 372, 32, 28);
-  spike(200, 410, 14);
-  return {name:'03 · First Lie', worldW:760, worldH:480, spawnX:50, spawnY:378,
+  S(40, 400, 100, 16);
+  F(182,400); F(214,400); S(246,400); F(278,400); S(310,400); F(342,400); S(374,400);
+  S(406, 400, 60, 16);
+  F(522,400); S(554,400); F(586,400); F(618,400); S(650,400); F(682,400); S(714,400);
+  S(746, 400, 120, 16);
+  G(824, 372, 32, 28);
+  spike(140, 410, 17);
+  spike(478, 410, 16);
+  return {name:'03 · First Lie', worldW:940, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 4 "Safe Color" — dark=solid safe; light=crumble dangerous.
+// ── Level 4 "Safe Color" — light=crumble; a 3-tile cluster mid-level demands a sprint.
 function buildLevel4() {
   const {S,C,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40, 400, 100, 16);
-  S(160, 400);
-  C(212, 400, 32, 16, true);
-  C(244, 400, 32, 16, true);
-  S(296, 400);
-  C(348, 400, 32, 16, true);
-  C(380, 400, 32, 16, true);
-  C(412, 400, 32, 16, true);
-  S(464, 400);
-  C(516, 400, 32, 16, true);
-  C(548, 400, 32, 16, true);
-  S(600, 400);
-  S(652, 400, 180, 16);
-  G(790, 372, 32, 28);
-  spike(140, 410, 40);
-  return {name:'04 · Safe Color', worldW:960, worldH:480, spawnX:50, spawnY:378,
+  S(40, 400, 80, 16);
+  S(160,400); C(212,400,32,16,true); C(244,400,32,16,true); S(296,400);
+  C(348,400,32,16,true); S(400,400); C(452,400,32,16,true); S(504,400);
+  S(556, 400, 40, 16);
+  C(648,400,32,16,true); C(680,400,32,16,true); C(712,400,32,16,true);
+  S(764,400); C(816,400,32,16,true); S(868,400);
+  S(920, 400, 100, 16);
+  G(978, 372, 32, 28);
+  spike(140, 410, 29);
+  spike(598, 410, 20);
+  return {name:'04 · Safe Color', worldW:1080, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 5 "Double Cross" — fake-tile bridge over a jumpable pit.
+// ── Level 5 "Double Cross" — entire first bridge is fake; second bridge hides one real tile.
 function buildLevel5() {
   const {S,F,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40, 400, 180, 16);
-  F(220, 400); F(252, 400); F(284, 400); F(316, 400); F(348, 400);
-  S(380, 400, 340, 16);
-  G(668, 372, 32, 28);
-  spike(220, 410, 11);
-  return {name:'05 · Double Cross', worldW:800, worldH:480, spawnX:50, spawnY:378,
+  S(40, 400, 140, 16);
+  F(180,400); F(212,400); F(244,400); F(276,400); F(308,400);
+  S(352, 400, 60, 16);
+  F(468,400); F(500,400); S(532,400); F(564,400); F(596,400); F(628,400);
+  S(672, 400, 120, 16);
+  G(750, 372, 32, 28);
+  spike(178, 410, 11);
+  spike(466, 410, 13);
+  return {name:'05 · Double Cross', worldW:880, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
    PHASE 2 — DISCOVERY (Levels 6–10)
-   Break assumptions. Reward curiosity.
+   Larger maps. Two sections each. Earned surprises.
    ═══════════════════════════════════════════════════════════════════════ */
 
-// ── Level 6 "Empty Air" — gap seems impassable; invisible platforms cross it.
+// ── Level 6 "Empty Air" — invisible platforms; irregular spacing across two sections.
 function buildLevel6() {
   const {S,I,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40,  400, 160, 16);
-  I(280, 400);
-  I(370, 400);
-  I(460, 400);
-  S(550, 400, 200, 16);
-  G(708, 372, 32, 28);
-  spike(200, 410, 22);
-  return {name:'06 · Empty Air', worldW:860, worldH:480, spawnX:50, spawnY:378,
+  S(40, 400, 100, 16);
+  spike(140, 410, 7);
+  I(252, 400); I(392, 400); I(492, 400);
+  spike(284, 410, 7); spike(424, 410, 4); spike(524, 410, 4);
+  S(576, 400, 60, 16);
+  spike(636, 410, 3);
+  I(684, 400); I(780, 400); I(908, 400);
+  spike(716, 410, 4); spike(812, 410, 6); spike(940, 410, 4);
+  S(992, 400, 120, 16);
+  G(1070, 372, 32, 28);
+  return {name:'06 · Empty Air', worldW:1200, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 7 "Patient Ground" — crumble + solid mix; keep moving.
+// ── Level 7 "Patient Ground" — ascending crumble staircase; flat 6-tile sprint at top; descend.
 function buildLevel7() {
   const {S,C,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
-  C(160, 380); C(200, 360); C(240, 340);
-  S(280, 340);
-  C(320, 340); C(360, 340); C(400, 340); C(440, 340);
-  S(480, 340);
-  C(520, 340); C(560, 340); C(600, 340);
-  S(640, 360); S(680, 380); S(720, 400, 160, 16);
-  G(838, 372, 32, 28);
-  spike(120, 420, 42);
-  return {name:'07 · Patient Ground', worldW:980, worldH:480, spawnX:50, spawnY:378,
+  C(160,380); C(200,360); C(240,340); C(280,320);
+  S(320, 320, 40, 16);
+  C(400,320); C(440,320); C(480,320); C(520,320); C(560,320); C(600,320);
+  S(640, 320, 40, 16);
+  C(720,340); C(760,360); C(800,380); C(840,400); C(880,400);
+  S(920, 400, 120, 16);
+  G(998, 372, 32, 28);
+  spike(120, 420, 51);
+  return {name:'07 · Patient Ground', worldW:1120, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 8 "Friendly Fire" — open platform; edge danger zones are invisible.
+// ── Level 8 "Friendly Fire" — wide open platform; seven invisible danger zones to jump.
 function buildLevel8() {
   const {S,G,dzone,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40,  400, 80,  16);
-  S(180, 400, 440, 16);
-  S(680, 400, 80,  16);
-  G(710, 372, 32, 28);
-  dzone(180, 368, 52, 48);     // left-edge death strip
-  dzone(568, 368, 52, 48);     // right-edge death strip
+  S(40, 400, 80, 16);
   spike(120, 410, 4);
-  spike(640, 410, 4);
-  return {name:'08 · Friendly Fire', worldW:820, worldH:480, spawnX:50, spawnY:378,
+  S(184, 400, 600, 16);
+  spike(784, 410, 2);
+  S(820, 400, 100, 16);
+  G(878, 372, 32, 28);
+  dzone(194, 368, 52, 40);
+  dzone(298, 368, 40, 40);
+  dzone(382, 368, 58, 40);
+  dzone(490, 368, 44, 40);
+  dzone(580, 368, 54, 40);
+  dzone(678, 368, 44, 40);
+  dzone(752, 368, 36, 40);
+  return {name:'08 · Friendly Fire', worldW:980, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 9 "The False Bottom" — shaft: fake floor at bottom, invisible mid-platform.
+// ── Level 9 "The False Bottom" — vertical shaft; fake at 380; invisible real floor at 530; side exit.
 function buildLevel9() {
   const {S,F,I,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40,  100, 200, 16);
-  S(40,  116, 16,  920);    // left wall (extended full height)
-  S(208, 116, 16,  462);    // right wall upper (y=116–578; gap at 578–600 for player exit)
-  S(208, 600, 16,  436);    // right wall lower (y=600–1036)
-  I(56,  600, 152, 16);     // invisible mid-shaft landing (real safe spot)
-  S(224, 600, 200, 16);
-  F(56,  1020, 152, 16);    // fake floor — hidden below initial viewport
-  spike(56, 1036, 9);
-  S(424, 600, 160, 16);
-  G(544, 572, 32, 28);
-  return {name:'09 · The False Bottom', worldW:680, worldH:1100, spawnX:80, spawnY:78,
+  S(40, 100, 200, 16);
+  S(40, 116, 16, 960);
+  S(208, 116, 16, 380);
+  S(208, 570, 16, 506);
+  F(56, 380, 152, 16);
+  I(56, 530, 152, 16);
+  S(224, 530, 220, 16);
+  G(504, 502, 32, 28);
+  F(56, 760, 152, 16);
+  spike(56, 1000, 9);
+  return {name:'09 · The False Bottom', worldW:680, worldH:1076, spawnX:80, spawnY:78,
           initialCamOffsetY: 0.9,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 10 "Unstable Trust" — dark tiles now crumble quickly; rules changed.
+// ── Level 10 "Unstable Trust" — fast crumble everywhere; only four true solids hidden among many.
 function buildLevel10() {
-  const {S,C,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  const {S,G,fc,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
-  const sc = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-                                   id:tiles.length,state:'idle',timer:0,warnFrames:CFG.CRUMBLE_WARN_FAST});
-  sc(160,400); sc(210,400); sc(262,400);
-  C(314,400);
-  sc(366,400); sc(418,400);
-  C(470,400);
-  sc(522,400); sc(574,400);
-  S(630, 400, 200, 16);
-  G(788, 372, 32, 28);
-  spike(140, 410, 32);
-  return {name:'10 · Unstable Trust', worldW:920, worldH:480, spawnX:50, spawnY:378,
+  fc(160,400); fc(210,400); fc(262,400);
+  S(314,400);
+  fc(366,400); fc(418,400); fc(470,400); fc(522,400);
+  S(574,400);
+  fc(626,400); fc(678,400);
+  S(730,400);
+  fc(782,400); fc(834,400); fc(886,400);
+  S(938, 400, 120, 16);
+  G(1016, 372, 32, 28);
+  spike(140, 410, 50);
+  return {name:'10 · Unstable Trust', worldW:1140, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
    PHASE 3 — REINFORCEMENT (Levels 11–15)
-   Combine mechanics. Demand memory and timing.
+   Two mechanics per level. False rest areas. Forced memorisation.
    ═══════════════════════════════════════════════════════════════════════ */
 
-// ── Level 11 "The Trigger" — enter zone → bridge materialises; sprint across.
+// ── Level 11 "The Trigger" — patience zone opens crumble bridge; sprint immediately after.
 function buildLevel11() {
-  const {S,TR,G,trig,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40, 400, 160, 16);
-  trig('B1', 130, 330, 70, 90);
-  TR(240, 400, 32, 16, 'B1');
-  TR(272, 400, 32, 16, 'B1');
-  TR(304, 400, 32, 16, 'B1');
-  TR(336, 400, 32, 16, 'B1');
-  S(370, 400, 300, 16);
-  G(628, 372, 32, 28);
-  spike(200, 410, 10);
-  return {name:'11 · The Trigger', worldW:760, worldH:480, spawnX:50, spawnY:378,
-          tiles, spikes, triggers, gravityZones, dangerZones};
-}
-
-// ── Level 12 "Still Waters" — stand completely still; path glows into view.
-function buildLevel12() {
-  const {S,R,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40, 400, 80, 16);
-  R(170, 400); R(210, 400); R(250, 400); R(290, 400); R(330, 400);
-  S(370, 400, 300, 16);
-  G(628, 372, 32, 28);
-  spike(120, 410, 16);
-  return {name:'12 · Still Waters', worldW:760, worldH:480, spawnX:50, spawnY:378,
-          tiles, spikes, triggers, gravityZones, dangerZones};
-}
-
-// ── Level 13 "Cascade" — trigger→crumble chain; plan full sequence before moving.
-function buildLevel13() {
   const {S,C,TR,G,trig,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40, 400, 120, 16);
-  trig('PA', 110, 330, 70, 90);
-  TR(220, 400, 32, 16, 'PA');
-  C(260, 400); C(300, 400); C(340, 400); C(380, 400);
-  S(420, 400);
-  trig('PB', 430, 330, 70, 90);
-  TR(540, 400, 32, 16, 'PB');
-  C(580, 400); C(620, 400); C(660, 400);
-  S(700, 400, 160, 16);
-  G(818, 372, 32, 28);
-  spike(160, 410, 39);
-  return {name:'13 · Cascade', worldW:960, worldH:480, spawnX:50, spawnY:378,
+  S(40, 400, 160, 16);
+  trig('B1', 110, 332, 80, 88, CFG.PATIENCE_FRAMES);
+  spike(200, 410, 2);
+  TR(240,400,32,16,'B1');
+  C(272,400); C(304,400); C(336,400); C(368,400); C(400,400); C(432,400);
+  S(464, 400, 80, 16);
+  trig('B2', 494, 340, 80, 80, CFG.PATIENCE_FRAMES);
+  spike(544, 410, 2);
+  TR(640,400,32,16,'B2');
+  C(672,400); C(704,400); C(736,400); C(768,400); C(800,400);
+  S(832, 400, 120, 16);
+  G(910, 372, 32, 28);
+  spike(238, 410, 14);
+  spike(638, 410, 11);
+  return {name:'11 · The Trigger', worldW:1040, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 14 "Memory Pit" — mostly fake; one solid per group. Deaths map the safe tile.
+// ── Level 12 "Still Waters" — reveal-crumble tiles; three sections, each longer than last.
+function buildLevel12() {
+  const {S,RC,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 80, 16);
+  RC(170,400); RC(210,400); RC(250,400); RC(290,400); RC(330,400);
+  S(370, 400, 80, 16);
+  RC(530,400); RC(570,400); RC(610,400); RC(650,400);
+  S(690, 400, 60, 16);
+  RC(830,400); RC(870,400); RC(910,400); RC(950,400); RC(990,400); RC(1030,400);
+  S(1070, 400, 120, 16);
+  G(1148, 372, 32, 28);
+  spike(120, 410, 16);
+  spike(450, 410, 15);
+  spike(750, 410, 19);
+  return {name:'12 · Still Waters', worldW:1280, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 13 "Cascade" — trigger chain; false dead-end fork ahead of second trigger.
+function buildLevel13() {
+  const {S,C,F,TR,G,trig,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 120, 16);
+  trig('PA', 100, 330, 70, 90);
+  spike(160, 410, 4);
+  TR(220,400,32,16,'PA');
+  C(252,400); C(292,400); C(332,400); C(372,400); C(412,400);
+  S(452, 400, 60, 16);
+  F(572,400);
+  trig('PB', 462, 330, 70, 90);
+  spike(512, 410, 4);
+  TR(608,400,32,16,'PB');
+  C(640,400); C(680,400); C(720,400); C(760,400); C(800,400);
+  S(840, 400, 160, 16);
+  G(958, 372, 32, 28);
+  spike(216, 410, 14);
+  spike(604, 410, 13);
+  return {name:'13 · Cascade', worldW:1080, worldH:480, spawnX:50, spawnY:378,
+          tiles, spikes, triggers, gravityZones, dangerZones};
+}
+
+// ── Level 14 "Memory Pit" — dense fake grid; far more fakes than solids; three sections to map.
 function buildLevel14() {
   const {S,F,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40, 400, 120, 16);
-  F(200, 400); F(240, 400);
-  S(280, 400);           // safe — slot 3
-  F(320, 400); F(360, 400);
-  S(400, 400, 60, 16);
-  F(510, 400); F(550, 400); F(590, 400);
-  S(630, 400);           // safe — slot 4
-  F(670, 400);
-  S(710, 400, 140, 16);
-  G(808, 372, 32, 28);
-  spike(160, 410, 28);
-  spike(500, 410, 16);
-  return {name:'14 · Memory Pit', worldW:920, worldH:480, spawnX:50, spawnY:378,
+  S(40, 400, 100, 16);
+  F(182,400); F(214,400); F(246,400); S(278,400); F(310,400); F(342,400);
+  S(374, 400, 60, 16);
+  F(490,400); F(522,400); S(554,400); F(586,400); F(618,400); F(650,400); S(682,400);
+  S(714, 400, 60, 16);
+  F(836,400); S(868,400); F(900,400); F(932,400); S(964,400); F(996,400);
+  S(1028, 400, 120, 16);
+  G(1106, 372, 32, 28);
+  spike(140, 410, 16);
+  spike(434, 410, 18);
+  spike(774, 410, 16);
+  return {name:'14 · Memory Pit', worldW:1240, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 15 "The Patience Tax" — reveal-crumble hybrids; act instantly after reveal.
+// ── Level 15 "The Patience Tax" — false-safe rest in the middle; reveal-crumble either side.
 function buildLevel15() {
-  const {S,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  const {S,RC,FS,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
-  const RC = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-                                   id:tiles.length,state:'idle',timer:0,
-                                   reveal:true,visible:false,warnFrames:CFG.REVEAL_CRUMBLE_WARN});
-  RC(170,400); RC(210,400); RC(250,400); RC(290,400); RC(330,400); RC(370,400);
-  S(410, 400, 80, 16);
-  RC(540,400); RC(580,400); RC(620,400); RC(660,400);
-  S(700, 400, 140, 16);
-  G(798, 372, 32, 28);
-  spike(120, 410, 38);
-  return {name:'15 · The Patience Tax', worldW:940, worldH:480, spawnX:50, spawnY:378,
+  RC(170,400); RC(210,400); RC(250,400); RC(290,400); RC(330,400);
+  FS(380, 400, 96, 16);
+  RC(496,400); RC(536,400); RC(576,400); RC(616,400); RC(656,400); RC(696,400);
+  S(736, 400, 120, 16);
+  G(814, 372, 32, 28);
+  spike(120, 410, 16);
+  spike(476, 410, 16);
+  return {name:'15 · The Patience Tax', worldW:960, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
    PHASE 4 — SUBVERSION (Levels 16–20)
-   Break learned rules. Reverse expectations.
+   Rules inverted. Every learned habit punished.
    ═══════════════════════════════════════════════════════════════════════ */
 
-// ── Level 16 "The Betrayal" — looks like L2 but the bridge is entirely fake.
+// ── Level 16 "The Betrayal" — entire visible bridge is fake; invisible stepping stone mid-span.
 function buildLevel16() {
-  const {S,F,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40, 400, 220, 16);
-  F(268, 400); F(300, 400); F(332, 400); F(364, 400);
-  S(396, 400, 340, 16);
-  G(694, 372, 32, 28);
-  spike(260, 410, 9);
-  return {name:'16 · The Betrayal', worldW:820, worldH:480, spawnX:50, spawnY:378,
+  const {S,F,I,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 180, 16);
+  F(220,400); F(252,400); F(284,400); F(316,400); F(348,400);
+  F(380,400); F(412,400); F(444,400);
+  I(476,400);
+  F(508,400); F(540,400); F(572,400);
+  S(608, 400, 200, 16);
+  G(766, 372, 32, 28);
+  spike(218, 410, 18);
+  return {name:'16 · The Betrayal', worldW:880, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 17 "Dark Side" — rules inverted: light=safe; dark=trap/kill.
+// ── Level 17 "Dark Side" — light=safe, dark=trap; long gauntlet with clustered traps.
 function buildLevel17() {
   const {S,SL,TP,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
-  TP(160, 400);
-  TP(192, 400);
-  SL(244, 400);
-  TP(296, 400);
-  TP(328, 400);
-  TP(360, 400);
-  SL(412, 400);
-  TP(464, 400);
-  SL(516, 400);
-  SL(548, 400);
-  TP(600, 400);
-  TP(632, 400);
-  SL(684, 400);
-  S(736, 400, 160, 16);
-  G(854, 372, 32, 28);
-  spike(140, 410, 41);
-  return {name:'17 · Dark Side', worldW:1000, worldH:480, spawnX:50, spawnY:378,
+  TP(160,400); TP(192,400); SL(244,400); TP(296,400); TP(328,400);
+  SL(380,400); TP(432,400); SL(484,400); TP(536,400); TP(568,400);
+  SL(620,400); TP(672,400); TP(704,400); SL(756,400); TP(808,400);
+  SL(860,400); SL(892,400); TP(944,400); SL(996,400);
+  S(1048, 400, 120, 16);
+  G(1126, 372, 32, 28);
+  spike(140, 410, 59);
+  return {name:'17 · Dark Side', worldW:1260, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 18 "Gravity Drift" — gravity doubles halfway; jump arc shrinks.
+// ── Level 18 "Gravity Drift" — gravity doubles halfway; ascending then descending path.
 function buildLevel18() {
   const {S,G,grav,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40, 400, 160, 16);
-  S(220, 380); S(270, 360); S(320, 340);
-  grav(360, 0, 500, 480, 2.0, 0.68);
-  S(380, 340); S(420, 340); S(460, 340);
-  S(500, 360); S(540, 380); S(580, 400, 240, 16);
-  G(778, 372, 32, 28);
-  spike(160, 420, 28);
-  return {name:'18 · Gravity Drift', worldW:920, worldH:480, spawnX:50, spawnY:378,
+  S(40, 400, 120, 16);
+  S(200,380); S(260,360); S(320,340); S(380,320);
+  grav(420, 0, 620, 480, 2.0, 0.65);
+  S(420,320); S(470,320); S(520,320); S(570,320); S(620,300); S(670,300);
+  S(720,320); S(770,340); S(820,360); S(870,380); S(920,400,200,16);
+  G(1078,372,32,28);
+  spike(160, 420, 2);
+  spike(196, 420, 14);
+  spike(418, 420, 31);
+  return {name:'18 · Gravity Drift', worldW:1180, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 19 "Safe No More" — glowing zone looks like L11's trigger but kills.
-//    Real elevated platform is above/beyond it — jump over, not into.
+// ── Level 19 "Safe No More" — three identical glow zones; two deadly, middle one real trigger.
 function buildLevel19() {
-  const {S,G,dzone,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40, 400, 160, 16);
-  dzone(240, 383, 48, 33, true);     // glow:true — identical look to L11 trigger
-  S(320, 352, 200, 16);              // elevated real path above the danger zone
-  S(560, 400, 200, 16);
-  G(718, 372, 32, 28);
-  spike(200, 420, 9);
-  return {name:'19 · Safe No More', worldW:840, worldH:480, spawnX:50, spawnY:378,
+  const {S,TR,G,trig,dzone,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  S(40, 400, 140, 16);
+  dzone(200, 375, 52, 40, true);
+  S(300, 400, 60, 16);
+  trig('K1', 310, 358, 52, 62, 0, true);
+  TR(430,400,32,16,'K1'); TR(462,400,32,16,'K1'); TR(494,400,32,16,'K1');
+  S(530, 400, 80, 16);
+  dzone(660, 375, 52, 40, true);
+  S(730, 400, 200, 16);
+  G(888, 372, 32, 28);
+  spike(180, 410, 3);
+  spike(390, 410, 2);
+  spike(612, 410, 3);
+  return {name:'19 · Safe No More', worldW:960, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 20 "Double Fake" — visible upper tiles fake; invisible lower ones real.
+// ── Level 20 "Double Fake" — fake+invisible combo; second section has a fake with no invisible below.
 function buildLevel20() {
   const {S,F,I,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 140, 16);
-  F(220, 400); F(260, 400); F(300, 400); F(340, 400);
-  I(220, 424); I(260, 424); I(300, 424); I(340, 424);
-  S(380, 424, 40, 16);
-  S(420, 408, 80, 16);
-  F(560, 400); F(600, 400); F(640, 400);
-  I(560, 424); I(600, 424); I(640, 424);
-  S(680, 400, 160, 16);
-  G(798, 372, 32, 28);
-  spike(180, 456, 33);
-  return {name:'20 · Double Fake', worldW:920, worldH:480, spawnX:50, spawnY:378,
+  F(220,400); F(260,400); F(300,400); F(340,400);
+  I(220,424); I(260,424); I(300,424); I(340,424);
+  S(380,424,40,16);
+  S(420,408,80,16);
+  F(560,400); F(600,400); F(640,400);
+  I(600,424);
+  S(680,424,40,16);
+  S(740,400,160,16);
+  G(858,372,32,28);
+  spike(180,456,2);
+  spike(216,456,10);
+  spike(520,456,2);
+  spike(556,456,2);
+  spike(644,456,2);
+  return {name:'20 · Double Fake', worldW:980, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
    PHASE 5 — MASTERY (Levels 21–30)
-   Everything at once. Fast adaptation. Earned difficulty.
+   Everything combined. Long maps. Unforgiving.
    ═══════════════════════════════════════════════════════════════════════ */
 
-// ── Level 21 "Chain Reaction" — trigger+crumble sprint+gravity zone in sequence.
+// ── Level 21 "Chain Reaction" — patience trigger → crumble sprint → heavy-gravity descent.
 function buildLevel21() {
   const {S,C,TR,G,trig,grav,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 100, 16);
-  trig('Q1', 100, 330, 60, 90);
+  trig('Q1', 80, 340, 80, 80, CFG.PATIENCE_FRAMES);
+  spike(140, 410, 2);
   TR(180,400,32,16,'Q1'); TR(212,400,32,16,'Q1');
-  C(252,400); C(292,400); C(332,400); S(372,400);
-  C(412,400); C(452,400); S(492,400);
-  grav(540, 0, 600, 480, 1.8, 0.70);
-  S(540,400); S(580,380); S(620,360); S(660,360);
-  C(700,360); C(740,360);
-  S(780,360,160,16);
-  G(898,332,32,28);
-  spike(160,410,25);
-  spike(540,420,15);
-  return {name:'21 · Chain Reaction', worldW:1040, worldH:480, spawnX:50, spawnY:378,
+  C(244,400); C(276,400); C(308,400); C(340,400); C(372,400);
+  S(404,400,40,16);
+  C(484,400); C(516,400); C(548,400); C(580,400);
+  S(612,400,40,16);
+  grav(700,0,500,480,1.8,0.68);
+  S(700,400); S(740,380); S(780,360); S(820,360);
+  C(860,360); C(900,360); C(940,360);
+  S(980,360,160,16);
+  G(1098,332,32,28);
+  spike(178,410,2);
+  spike(212,410,12);
+  spike(444,410,5);
+  spike(700,420,20);
+  return {name:'21 · Chain Reaction', worldW:1200, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 22 "The Hesitation Path" — patience triggers: wait 1 s on platform → next appears.
+// ── Level 22 "The Hesitation Path" — patience bridge each time; fake tile waits right after.
 function buildLevel22() {
-  const {S,TR,G,trig,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  const {S,F,TR,G,trig,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
-  trig('H1',  60, 358, 60, 62, CFG.PATIENCE_FRAMES);
-  TR(180,400,32,16,'H1');
-  S(220,400,48,16);
-  trig('H2', 228, 358, 48, 62, CFG.PATIENCE_FRAMES);
-  TR(330,400,32,16,'H2');
-  S(370,400,48,16);
-  trig('H3', 378, 358, 48, 62, CFG.PATIENCE_FRAMES);
-  TR(480,400,32,16,'H3');
-  S(520,400,48,16);
-  trig('H4', 528, 358, 48, 62, CFG.PATIENCE_FRAMES);
-  TR(630,400,32,16,'H4');
-  S(670,400,160,16);
-  G(788,372,32,28);
-  spike(120,410,36);
-  return {name:'22 · The Hesitation Path', worldW:920, worldH:480, spawnX:50, spawnY:378,
+  trig('H1', 50, 358, 70, 62, CFG.PATIENCE_FRAMES);
+  spike(120, 410, 4);
+  TR(200,400,32,16,'H1');
+  F(240,400);
+  S(280,400,60,16);
+  trig('H2', 298, 358, 60, 62, CFG.PATIENCE_FRAMES);
+  spike(340, 410, 4);
+  TR(428,400,32,16,'H2');
+  F(466,400); F(498,400);
+  S(538,400,60,16);
+  trig('H3', 556, 358, 60, 62, CFG.PATIENCE_FRAMES);
+  spike(598, 410, 4);
+  TR(680,400,32,16,'H3');
+  F(716,400);
+  S(754,400,60,16);
+  trig('H4', 772, 358, 60, 62, CFG.PATIENCE_FRAMES);
+  spike(814, 410, 4);
+  TR(892,400,32,16,'H4');
+  S(932,400,120,16);
+  G(1010,372,32,28);
+  spike(196,410,2);
+  spike(236,410,2);
+  spike(424,410,2);
+  spike(462,410,4);
+  spike(676,410,2);
+  spike(712,410,2);
+  spike(888,410,2);
+  return {name:'22 · The Hesitation Path', worldW:1140, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 23 "False Memory" — invisible platforms; systematic elimination reveals path.
+// ── Level 23 "False Memory" — invisible platforms; asymmetric wide gaps; second section surprising.
 function buildLevel23() {
   const {S,I,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
-  I(180, 400);          // real — slot 1
-                        // slot 2 — gap (death)
-  I(320, 400);          // real — slot 3
-                        // slot 4 — gap
-  I(460, 400);          // real — slot 5
-  S(540, 400, 80, 16);
-                        // slot 1 — gap
-  I(680, 400);          // real — slot 2
-                        // slot 3 — gap
-  I(820, 400);          // real — slot 4
-  S(900, 400, 160, 16);
-  G(1018,372,32,28);
-  spike(120,410,51);
-  return {name:'23 · False Memory', worldW:1140, worldH:480, spawnX:50, spawnY:378,
+  spike(120, 410, 7);
+  I(232, 400);
+  spike(264, 410, 4);
+  I(332, 400);
+  spike(364, 410, 5);
+  I(444, 400);
+  S(524, 400, 80, 16);
+  spike(604, 410, 5);
+  I(684, 400);
+  spike(716, 410, 8);
+  I(844, 400);
+  I(924, 400);
+  spike(956, 410, 4);
+  S(988, 400, 160, 16);
+  G(1106,372,32,28);
+  return {name:'23 · False Memory', worldW:1260, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 24 "The Mirror" — left half original rules; right half inverted.
+// ── Level 24 "The Mirror" — left half dark=safe/light=crumble; right half inverted.
 function buildLevel24() {
   const {S,C,SL,TP,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
-  // Left: dark=safe, light=crumble
   S(160,400); C(212,400,32,16,true); S(264,400);
-  C(316,400,32,16,true); S(368,400);
-  S(420,400,40,16);     // midpoint divider
-  // Right: light=safe (SL), dark=trap (TP)
-  SL(520,400); TP(572,400); SL(624,400);
-  TP(676,400); TP(708,400); SL(760,400);
-  S(820,400,160,16);
-  G(938,372,32,28);
-  spike(140,410,46);
-  return {name:'24 · The Mirror', worldW:1080, worldH:480, spawnX:50, spawnY:378,
+  C(316,400,32,16,true); S(368,400); C(420,400,32,16,true);
+  S(472,400,40,16);
+  S(520,400,40,16);
+  SL(620,400); TP(672,400); TP(704,400); SL(756,400);
+  TP(808,400); SL(860,400); TP(912,400); TP(944,400); SL(996,400);
+  S(1048, 400, 120, 16);
+  G(1126, 372, 32, 28);
+  spike(140, 410, 1);
+  spike(160, 410, 20);
+  spike(512, 410, 2);
+  spike(578, 410, 30);
+  return {name:'24 · The Mirror', worldW:1260, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 25 "Slow Burn" — wide false-safe platform with compressed timer.
+// ── Level 25 "Slow Burn" — crumble approach; wide false-safe trap; crumble exit.
 function buildLevel25() {
-  const {S,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  const {S,C,FS,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
-  tiles.push({type:'false-safe',x:180,y:400,w:480,h:16,id:tiles.length,
-              timer:0,dangerous:false,dangerTimer:0,_warming:false,
-              fastTTL:CFG.FALSE_SAFE_FAST_TTL, fastWarn:CFG.FALSE_SAFE_FAST_WARN});
-  S(700, 400, 160, 16);
-  G(818, 372, 32, 28);
-  spike(120, 420, 4);
-  spike(680, 420, 4);
-  return {name:'25 · Slow Burn', worldW:960, worldH:480, spawnX:50, spawnY:378,
+  spike(120, 410, 3);
+  C(168,400); C(200,400);
+  FS(232, 400, 320, 16, true);
+  C(552,400); C(584,400);
+  spike(616, 410, 2);
+  S(648, 400, 160, 16);
+  G(766, 372, 32, 28);
+  return {name:'25 · Slow Burn', worldW:940, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 26 "Trigger Happy" — two identical glowing zones; one dangerous, one trigger.
+// ── Level 26 "Trigger Happy" — three glow zones; outer two deadly, middle one real trigger.
 function buildLevel26() {
   const {S,TR,G,trig,dzone,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40, 400, 160, 16);
-  dzone(240, 378, 48, 38, true);            // left zone — looks like trigger, is deadly
-  trig('K1', 340, 378, 48, 38, 0, true);   // right zone — same glow, actually helpful
-  S(340, 400, 48, 16);                      // ground under trigger so player doesn't fall after activating
-  TR(390,400,32,16,'K1'); TR(422,400,32,16,'K1');
-  TR(454,400,32,16,'K1'); TR(486,400,32,16,'K1');
-  TR(518,400,32,16,'K1');
-  S(560, 400, 200, 16);
-  G(718, 372, 32, 28);
-  spike(200, 420, 23);
-  return {name:'26 · Trigger Happy', worldW:860, worldH:480, spawnX:50, spawnY:378,
+  S(40, 400, 120, 16);
+  dzone(200, 377, 52, 38, true);
+  S(300, 400, 80, 16);
+  trig('K1', 330, 358, 52, 52, 0, true);
+  TR(450,400,32,16,'K1'); TR(482,400,32,16,'K1');
+  TR(514,400,32,16,'K1'); TR(546,400,32,16,'K1');
+  TR(578,400,32,16,'K1');
+  S(618, 400, 80, 16);
+  dzone(748, 377, 52, 38, true);
+  S(850, 400, 160, 16);
+  G(968, 372, 32, 28);
+  spike(160, 410, 3);
+  spike(192, 410, 7);
+  spike(380, 410, 4);
+  spike(698, 410, 3);
+  spike(744, 410, 7);
+  return {name:'26 · Trigger Happy', worldW:1080, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 27 "Ghostwalk" — light gravity, instant-crumble invisible platforms; keep ascending.
+// ── Level 27 "Ghostwalk" — light gravity; instant-crumble ascending chain; no margin to pause.
 function buildLevel27() {
-  const {S,G,grav,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  grav(0, 0, 480, 760, 0.45, 1.25);
-  S(40, 680, 200, 16);
-  const ic = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-                                   id:tiles.length,state:'idle',timer:0,instantCrumble:true});
-  ic(80, 600); ic(180, 530); ic(80,  460); ic(200, 400);
-  ic(100,330); ic(220, 270); ic(80,  210);
-  S(60, 150, 200, 16);
-  G(120, 122, 32, 28);
-  spike(40, 700, 12);
-  return {name:'27 · Ghostwalk', worldW:480, worldH:760, spawnX:100, spawnY:658,
+  const {S,ic,G,grav,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  grav(0, 0, 560, 820, 0.45, 1.25);
+  S(40, 720, 200, 16);
+  ic(60, 640); ic(160, 570); ic(80, 500); ic(200, 440);
+  ic(80, 370); ic(220, 310); ic(80, 250); ic(200, 190);
+  ic(100, 130);
+  S(60, 80, 200, 16);
+  G(100, 52, 32, 28);
+  spike(40, 740, 12);
+  return {name:'27 · Ghostwalk', worldW:560, worldH:820, spawnX:100, spawnY:698,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 28 "The Patience Gauntlet" — reveal-crumble + patience triggers + more reveal.
+// ── Level 28 "The Patience Gauntlet" — reveal-crumble; false-safe trap; two patience triggers.
 function buildLevel28() {
-  const {S,C,TR,G,trig,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  const {S,TR,RC,FS,G,trig,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
-  const RC = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-                                   id:tiles.length,state:'idle',timer:0,reveal:true,visible:false,warnFrames:CFG.REVEAL_CRUMBLE_WARN});
-  RC(170,400); RC(210,400); RC(250,400); RC(290,400);
-  S(330,400,60,16);
-  trig('G1', 340, 340, 70, 80, CFG.PATIENCE_FRAMES);
-  TR(450,400,32,16,'G1'); C(490,400); C(530,400); C(570,400);
-  TR(610,400,32,16,'G1');
-  S(650,400,60,16);
-  trig('G2', 660, 340, 70, 80, CFG.PATIENCE_FRAMES);
-  RC(780,400); RC(820,400); RC(860,400); RC(900,400);
-  S(940,400,140,16);
-  G(1040,372,32,28);
-  spike(120,410,55);
-  return {name:'28 · The Patience Gauntlet', worldW:1160, worldH:480, spawnX:50, spawnY:378,
+  RC(170,400); RC(210,400); RC(250,400); RC(290,400); RC(330,400);
+  S(370,400,60,16);
+  FS(430, 400, 96, 16);
+  S(526,400,60,16);
+  trig('G1', 556, 340, 70, 80, CFG.PATIENCE_FRAMES);
+  spike(586, 410, 2);
+  TR(660,400,32,16,'G1'); RC(692,400); RC(732,400); RC(772,400);
+  TR(812,400,32,16,'G1');
+  S(852,400,60,16);
+  trig('G2', 880, 340, 70, 80, CFG.PATIENCE_FRAMES);
+  spike(912, 410, 2);
+  RC(1000,400); RC(1040,400); RC(1080,400); RC(1120,400); RC(1160,400);
+  S(1200,400,120,16);
+  G(1278,372,32,28);
+  spike(120,410,33);
+  spike(656,410,11);
+  spike(996,410,13);
+  return {name:'28 · The Patience Gauntlet', worldW:1400, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 29 "Everything You Know" — five compact Phase-4 subversions in sequence.
+// ── Level 29 "Everything You Know" — five sections echoing every Phase 4 subversion, harder.
 function buildLevel29() {
-  const {S,F,I,C,SL,TP,TR,G,trig,grav,dzone,spike,
+  const {S,F,I,C,SL,TP,TR,RC,fc,ic,FS,G,trig,grav,dzone,spike,
          tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
 
-  // §1 — fake bridge (L16 echo)
+  // §1 — fake bridge with hidden invisible mid-span (L5/L16 echo)
   S(40,400,120,16);
-  F(200,400); F(232,400); F(264,400);
-  S(320,400,48,16);
-  spike(160,410,11);
+  F(200,400); F(232,400); F(264,400); F(296,400);
+  I(332,400);
+  F(364,400); F(396,400);
+  S(440,400,40,16);
+  spike(160,410,20);
 
-  // §2 — inverted colours (L17 echo)
-  TP(420,400); SL(452,400); TP(484,400); SL(516,400);
-  S(568,400,48,16);
-  spike(400,410,11);
+  // §2 — inverted colours then patience trigger (L17/L22 echo)
+  TP(540,400); SL(572,400); TP(604,400); SL(636,400); TP(668,400);
+  S(700,400,40,16);
+  trig('Z1',700,340,60,80,CFG.PATIENCE_FRAMES);
+  spike(480,410,13);
 
-  // §3 — glowing danger zone masquerading as trigger (L19 echo)
-  dzone(666,383,48,33,true);
-  S(720,352,80,16);
-  S(820,400,48,16);
-  spike(640,420,7);
+  // §3 — patience bridge into reveal-crumble then deadly glow (L12/L19 echo)
+  TR(820,400,32,16,'Z1');
+  RC(860,400); RC(900,400); RC(940,400);
+  dzone(988,375,48,38,true);
+  S(1052,400,60,16);
+  spike(816,410,11);
 
-  // §4 — double fake / invisible below (L20 echo)
-  F(920,400); F(952,400); F(984,400);
-  I(920,424); I(952,424); I(984,424);
-  S(1016,424,48,16);
-  S(1080,400,48,16);
-  spike(900,456,11);
+  // §4 — heavy gravity + instant crumble staircase (L18/L27 echo)
+  grav(1172,0,400,480,1.9,0.66);
+  ic(1172,400); ic(1232,380); ic(1292,360); ic(1352,360); ic(1412,380);
+  S(1452,400,80,16);
+  spike(1172,420,18);
 
-  // §5 — heavy gravity (L18 echo)
-  grav(1178,0,300,480, 2.0, 0.68);
-  S(1178,400); S(1218,400); S(1258,400);
-  S(1298,400,200,16);
-  G(1456,372,32,28);
-  spike(1178,420,6);
+  // §5 — false-safe then fast crumble exit (L25/L10 echo)
+  FS(1592, 400, 192, 16, true);
+  fc(1784,400); fc(1816,400); fc(1848,400);
+  S(1880,400,120,16);
+  G(1958,372,32,28);
+  spike(1540,410,2);
+  spike(1780,410,4);
 
-  return {name:'29 · Everything You Know', worldW:1580, worldH:480, spawnX:50, spawnY:378,
+  return {name:'29 · Everything You Know', worldW:2100, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 30 "Blindpath" — complete darkness; pure memory and trust.
+// ── Level 30 "Blindpath" — complete darkness; all mechanics echoed; pure memory and trust.
 function buildLevel30() {
-  const {S,F,C,I,G,grav,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  const {S,F,I,RC,fc,ic,G,grav,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
 
   S(40,400,80,16);
 
-  // Echo — fake floor
-  F(180,400); F(212,400);
-  S(244,400,80,16);
+  // §1 — fake approach (L3 echo)
+  spike(120,410,4);
+  F(188,400); F(220,400); S(252,400); F(284,400);
+  S(316,400,80,16);
 
-  // Echo — invisible bridge
-  I(380,400); I(420,400); I(460,400);
-  S(500,400,60,16);
+  // §2 — invisible bridge (L6 echo)
+  spike(396,410,6);
+  I(492,400); I(572,400); I(652,400);
+  spike(524,410,4); spike(604,410,4);
+  S(684,400,60,16);
 
-  // Echo — reveal-crumble
-  const RC = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-                                   id:tiles.length,state:'idle',timer:0,reveal:true,visible:false});
-  RC(620,400); RC(660,400); RC(700,400);
-  S(740,400,60,16);
+  // §3 — fast crumble sprint (L10 echo)
+  spike(744,410,4);
+  fc(812,400); fc(844,400); fc(876,400); fc(908,400);
+  S(940,400,60,16);
 
-  S(860,400,60,16);
+  // §4 — reveal-crumble (L12 echo)
+  spike(1000,410,3);
+  RC(1028,400); RC(1068,400); RC(1108,400); RC(1148,400);
+  S(1188,400,60,16);
 
-  // Echo — light gravity ascent
-  grav(980,0,400,480, 0.50, 1.20);
-  I(980,380); I(1040,360); I(1100,340); I(1160,360); I(1220,380);
-  S(1280,400,120,16);
+  // §5 — light gravity ascent with instant crumble (L27 echo)
+  spike(1248,410,3);
+  grav(1300,0,400,480,0.50,1.20);
+  ic(1300,380); ic(1380,360); ic(1460,340); ic(1540,360); ic(1620,380);
+  S(1700,400,100,16);
+  G(1760,372,32,28);
+  spike(1700,410,2);
 
-  G(1360,372,32,28);
-
-  spike(160,410,4);
-  spike(340,410,8);
-  spike(560,410,4);
-  spike(800,410,4);
-  spike(920,410,4);
-
-  return {name:'30 · Blindpath', worldW:1520, worldH:480, spawnX:50, spawnY:378,
+  return {name:'30 · Blindpath', worldW:1920, worldH:480, spawnX:50, spawnY:378,
           darkMode:true,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
