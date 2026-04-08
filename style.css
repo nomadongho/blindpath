@@ -869,3 +869,60 @@ body.phase-3 #level-title-overlay {
 }
 body.phase-2 #save-toast { color: #3a4a70; }
 body.phase-3 #save-toast { color: #604040; }
+
+/* Volume control */
+#vol-control {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  z-index: 30;
+  opacity: 0.35;
+  transition: opacity 0.2s ease;
+}
+#vol-control:hover { opacity: 0.9; }
+
+#vol-icon {
+  font-size: 11px;
+  color: #5a5040;
+  cursor: pointer;
+  line-height: 1;
+}
+
+#vol-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 56px;
+  height: 3px;
+  background: #3a3428;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+#vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #8a7a5a;
+  cursor: pointer;
+}
+#vol-slider::-moz-range-thumb {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #8a7a5a;
+  border: none;
+  cursor: pointer;
+}
+body.phase-2 #vol-icon  { color: #3a4a70; }
+body.phase-2 #vol-slider { background: #2a3050; }
+body.phase-2 #vol-slider::-webkit-slider-thumb { background: #5a6a9a; }
+body.phase-2 #vol-slider::-moz-range-thumb     { background: #5a6a9a; }
+body.phase-3 #vol-icon  { color: #604040; }
+body.phase-3 #vol-slider { background: #402020; }
+body.phase-3 #vol-slider::-webkit-slider-thumb { background: #9a5050; }
+body.phase-3 #vol-slider::-moz-range-thumb     { background: #9a5050; }
