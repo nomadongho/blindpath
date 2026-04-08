@@ -30,7 +30,7 @@ const CFG = {
   FALSE_SAFE_WARN: 120,  // frames before warming hint appears (halfway point)
   FALSE_SAFE_GRACE: 30,
   GHOST_RADIUS:    96,
-  PATIENCE_FRAMES: 60,   // frames player must stand still before a patience trigger activates
+  PATIENCE_FRAMES: 90,   // frames player must stand still before a patience trigger activates
   RESPAWN_DELAY:   22,
   MASTER_VOL:      0.18,
 };
@@ -274,24 +274,28 @@ function buildLevel1() {
 // ── Level 2 "The Gap" — visible spike pit; must jump to cross.
 function buildLevel2() {
   const {S,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40,  400, 220, 16);
-  S(380, 400, 340, 16);
-  G(668, 372, 32, 28);
-  spike(268, 410, 7);
-  return {name:'02 · The Gap', worldW:800, worldH:480, spawnX:50, spawnY:378,
+  S(40,  400, 180, 16);
+  S(400, 400, 340, 16);
+  G(698, 372, 32, 28);
+  spike(220, 410, 11);
+  return {name:'02 · The Gap', worldW:840, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 3 "First Lie" — one fake tile beside one solid (identical look).
+// ── Level 3 "First Lie" — multiple fake tiles mixed with solids (identical look).
 function buildLevel3() {
   const {S,F,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
-  S(40, 400, 180, 16);
-  S(240, 400);        // solid — safe
-  F(272, 400);        // fake  — identical look
-  S(320, 400, 340, 16);
-  G(618, 372, 32, 28);
-  spike(272, 410, 2);
-  return {name:'03 · First Lie', worldW:740, worldH:480, spawnX:50, spawnY:378,
+  S(40, 400, 160, 16);
+  F(200, 400);        // fake
+  F(232, 400);        // fake
+  S(264, 400);        // solid — safe
+  F(296, 400);        // fake
+  S(328, 400);        // solid — safe
+  F(360, 400);        // fake
+  S(396, 400, 280, 16);
+  G(634, 372, 32, 28);
+  spike(200, 410, 14);
+  return {name:'03 · First Lie', worldW:760, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
@@ -301,18 +305,19 @@ function buildLevel4() {
   S(40, 400, 100, 16);
   S(160, 400);
   C(212, 400, 32, 16, true);
-  S(264, 400);
-  C(316, 400, 32, 16, true);
+  C(244, 400, 32, 16, true);
+  S(296, 400);
   C(348, 400, 32, 16, true);
-  S(400, 400);
-  C(452, 400, 32, 16, true);
-  S(504, 400);
-  C(556, 400, 32, 16, true);
-  S(608, 400);
-  S(660, 400, 180, 16);
-  G(798, 372, 32, 28);
-  spike(140, 410, 34);
-  return {name:'04 · Safe Color', worldW:920, worldH:480, spawnX:50, spawnY:378,
+  C(380, 400, 32, 16, true);
+  C(412, 400, 32, 16, true);
+  S(464, 400);
+  C(516, 400, 32, 16, true);
+  C(548, 400, 32, 16, true);
+  S(600, 400);
+  S(652, 400, 180, 16);
+  G(790, 372, 32, 28);
+  spike(140, 410, 40);
+  return {name:'04 · Safe Color', worldW:960, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
@@ -351,16 +356,15 @@ function buildLevel6() {
 function buildLevel7() {
   const {S,C,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
-  C(160, 380); C(200, 360);
-  S(240, 340);
-  C(280, 340); C(320, 340);
-  S(360, 340);
-  C(400, 340); C(440, 340); C(480, 340);
-  S(520, 340);
-  S(560, 360); S(600, 380); S(640, 400, 200, 16);
-  G(798, 372, 32, 28);
-  spike(120, 420, 34);
-  return {name:'07 · Patient Ground', worldW:920, worldH:480, spawnX:50, spawnY:378,
+  C(160, 380); C(200, 360); C(240, 340);
+  S(280, 340);
+  C(320, 340); C(360, 340); C(400, 340); C(440, 340);
+  S(480, 340);
+  C(520, 340); C(560, 340); C(600, 340);
+  S(640, 360); S(680, 380); S(720, 400, 160, 16);
+  G(838, 372, 32, 28);
+  spike(120, 420, 42);
+  return {name:'07 · Patient Ground', worldW:980, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
@@ -397,12 +401,12 @@ function buildLevel9() {
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 10 "Unstable Trust" — dark tiles now crumble slowly; rules changed.
+// ── Level 10 "Unstable Trust" — dark tiles now crumble quickly; rules changed.
 function buildLevel10() {
   const {S,C,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
   const sc = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-                                   id:tiles.length,state:'idle',timer:0,warnFrames:90});
+                                   id:tiles.length,state:'idle',timer:0,warnFrames:55});
   sc(160,400); sc(210,400); sc(262,400);
   C(314,400);
   sc(366,400); sc(418,400);
@@ -454,34 +458,34 @@ function buildLevel13() {
   S(40, 400, 120, 16);
   trig('PA', 110, 330, 70, 90);
   TR(220, 400, 32, 16, 'PA');
-  C(260, 400); C(300, 400);
-  S(340, 400);
-  C(380, 400); C(420, 400);
-  S(460, 400, 80, 16);
-  trig('PB', 470, 330, 70, 90);
-  TR(580, 400, 32, 16, 'PB');
-  C(620, 400); C(660, 400);
+  C(260, 400); C(300, 400); C(340, 400); C(380, 400);
+  S(420, 400);
+  trig('PB', 430, 330, 70, 90);
+  TR(540, 400, 32, 16, 'PB');
+  C(580, 400); C(620, 400); C(660, 400);
   S(700, 400, 160, 16);
   G(818, 372, 32, 28);
-  spike(160, 410, 35);
-  return {name:'13 · Cascade', worldW:940, worldH:480, spawnX:50, spawnY:378,
+  spike(160, 410, 39);
+  return {name:'13 · Cascade', worldW:960, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
-// ── Level 14 "Memory Pit" — two fake, one solid; deaths map the safe tile.
+// ── Level 14 "Memory Pit" — mostly fake; one solid per group. Deaths map the safe tile.
 function buildLevel14() {
   const {S,F,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 120, 16);
-  F(200, 400);
-  S(240, 400);
-  F(280, 400);
-  S(340, 400, 80, 16);
-  F(470, 400); F(510, 400);
-  S(550, 400);
-  S(600, 400, 160, 16);
-  G(718, 372, 32, 28);
+  F(200, 400); F(240, 400);
+  S(280, 400);           // safe — slot 3
+  F(320, 400); F(360, 400);
+  S(400, 400, 60, 16);
+  F(510, 400); F(550, 400); F(590, 400);
+  S(630, 400);           // safe — slot 4
+  F(670, 400);
+  S(710, 400, 140, 16);
+  G(808, 372, 32, 28);
   spike(160, 410, 28);
-  return {name:'14 · Memory Pit', worldW:840, worldH:480, spawnX:50, spawnY:378,
+  spike(500, 410, 16);
+  return {name:'14 · Memory Pit', worldW:920, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
@@ -491,14 +495,14 @@ function buildLevel15() {
   S(40, 400, 80, 16);
   const RC = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
                                    id:tiles.length,state:'idle',timer:0,
-                                   reveal:true,visible:false});
+                                   reveal:true,visible:false,warnFrames:22});
   RC(170,400); RC(210,400); RC(250,400); RC(290,400); RC(330,400); RC(370,400);
   S(410, 400, 80, 16);
-  RC(540,400); RC(580,400); RC(620,400);
-  S(660, 400, 160, 16);
-  G(778, 372, 32, 28);
-  spike(120, 410, 36);
-  return {name:'15 · The Patience Tax', worldW:920, worldH:480, spawnX:50, spawnY:378,
+  RC(540,400); RC(580,400); RC(620,400); RC(660,400);
+  S(700, 400, 140, 16);
+  G(798, 372, 32, 28);
+  spike(120, 410, 38);
+  return {name:'15 · The Patience Tax', worldW:940, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
@@ -524,17 +528,22 @@ function buildLevel17() {
   const {S,SL,TP,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
   TP(160, 400);
-  SL(210, 400);
-  TP(262, 400); TP(294, 400);
-  SL(346, 400);
-  TP(398, 400);
-  SL(450, 400); SL(482, 400);
-  TP(534, 400);
-  SL(586, 400);
-  S(640, 400, 180, 16);
-  G(778, 372, 32, 28);
-  spike(140, 410, 33);
-  return {name:'17 · Dark Side', worldW:920, worldH:480, spawnX:50, spawnY:378,
+  TP(192, 400);
+  SL(244, 400);
+  TP(296, 400);
+  TP(328, 400);
+  TP(360, 400);
+  SL(412, 400);
+  TP(464, 400);
+  SL(516, 400);
+  SL(548, 400);
+  TP(600, 400);
+  TP(632, 400);
+  SL(684, 400);
+  S(736, 400, 160, 16);
+  G(854, 372, 32, 28);
+  spike(140, 410, 41);
+  return {name:'17 · Dark Side', worldW:1000, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
@@ -674,7 +683,7 @@ function buildLevel25() {
   S(40, 400, 80, 16);
   tiles.push({type:'false-safe',x:180,y:400,w:480,h:16,id:tiles.length,
               timer:0,dangerous:false,dangerTimer:0,_warming:false,
-              fastTTL:140, fastWarn:70});
+              fastTTL:100, fastWarn:50});
   S(700, 400, 160, 16);
   G(818, 372, 32, 28);
   spike(120, 420, 4);
@@ -721,19 +730,19 @@ function buildLevel28() {
   const {S,C,TR,G,trig,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
   const RC = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-                                   id:tiles.length,state:'idle',timer:0,reveal:true,visible:false});
-  RC(170,400); RC(210,400); RC(250,400);
-  S(290,400,80,16);
-  trig('G1', 300, 340, 70, 80, CFG.PATIENCE_FRAMES);
-  TR(420,400,32,16,'G1'); C(460,400); C(500,400);
-  TR(540,400,32,16,'G1');
-  S(580,400,80,16);
-  trig('G2', 590, 340, 70, 80, CFG.PATIENCE_FRAMES);
-  RC(710,400); RC(750,400); RC(790,400);
-  S(830,400,160,16);
-  G(950,372,32,28);
-  spike(120,410,50);
-  return {name:'28 · The Patience Gauntlet', worldW:1080, worldH:480, spawnX:50, spawnY:378,
+                                   id:tiles.length,state:'idle',timer:0,reveal:true,visible:false,warnFrames:22});
+  RC(170,400); RC(210,400); RC(250,400); RC(290,400);
+  S(330,400,60,16);
+  trig('G1', 340, 340, 70, 80, CFG.PATIENCE_FRAMES);
+  TR(450,400,32,16,'G1'); C(490,400); C(530,400); C(570,400);
+  TR(610,400,32,16,'G1');
+  S(650,400,60,16);
+  trig('G2', 660, 340, 70, 80, CFG.PATIENCE_FRAMES);
+  RC(780,400); RC(820,400); RC(860,400); RC(900,400);
+  S(940,400,140,16);
+  G(1040,372,32,28);
+  spike(120,410,55);
+  return {name:'28 · The Patience Gauntlet', worldW:1160, worldH:480, spawnX:50, spawnY:378,
           tiles, spikes, triggers, gravityZones, dangerZones};
 }
 
@@ -852,11 +861,11 @@ function applyPhaseModifiers(level, phase) {
     tiles.forEach(tile => {
       if (tile.type === 'solid' && tile.w === T) {
         sc++;
-        if (sc % 5 === 0) {
+        if (sc % 4 === 0) {
           tile.type      = 'crumble';
           tile.state     = 'idle';
           tile.timer     = 0;
-          tile.warnFrames = 90;
+          tile.warnFrames = 70;
         }
       }
     });
@@ -873,13 +882,13 @@ function applyPhaseModifiers(level, phase) {
     tiles.forEach(tile => {
       if (tile.type === 'solid' && tile.w === T) {
         sc++;
-        if (sc % 4 === 3) tile.type = 'trap';
+        if (sc % 3 === 0) tile.type = 'trap';
       }
     });
     tiles.forEach(tile => {
       if (tile.type === 'false-safe') {
-        tile.fastTTL  = 80;
-        tile.fastWarn = 40;
+        tile.fastTTL  = 60;
+        tile.fastWarn = 30;
       }
     });
   }
