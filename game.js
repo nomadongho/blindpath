@@ -262,8 +262,22 @@ function makeLevelParts() {
   /* danger zone helper (feet contact = death) */
   const dzone = (x,y,w,h,glow) => dangerZones.push({x,y,w,h,glow:!!glow});
 
+  /* compound tile helpers (shared across multiple levels) */
+  const RC = (x,y) => tiles.push({type:'crumble',x,y,w:T,h:H,
+    id:tiles.length,state:'idle',timer:0,reveal:true,visible:false,warnFrames:CFG.REVEAL_CRUMBLE_WARN});
+  const fc = (x,y) => tiles.push({type:'crumble',x,y,w:T,h:H,
+    id:tiles.length,state:'idle',timer:0,warnFrames:CFG.CRUMBLE_WARN_FAST});
+  const ic = (x,y) => tiles.push({type:'crumble',x,y,w:T,h:H,
+    id:tiles.length,state:'idle',timer:0,instantCrumble:true});
+  const FS = (x,y,w,h,fast) => {
+    const t = {type:'false-safe',x,y,w:w||T,h:h||H,id:tiles.length,
+               timer:0,dangerous:false,dangerTimer:0,_warming:false};
+    if(fast){ t.fastTTL = CFG.FALSE_SAFE_FAST_TTL; t.fastWarn = CFG.FALSE_SAFE_FAST_WARN; }
+    tiles.push(t);
+  };
+
   return { tiles,spikes,triggers,gravityZones,dangerZones,
-           S,F,I,C,R,Z,TR,TP,SL,G,spike,trig,grav,dzone };
+           S,F,I,C,R,Z,TR,TP,SL,G,spike,trig,grav,dzone,RC,fc,ic,FS };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -420,10 +434,8 @@ function buildLevel9() {
 
 // ── Level 10 "Unstable Trust" — fast crumble everywhere; only four true solids hidden among many.
 function buildLevel10() {
-  const {S,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  const {S,G,fc,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
-  const fc = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-                                   id:tiles.length,state:'idle',timer:0,warnFrames:CFG.CRUMBLE_WARN_FAST});
   fc(160,400); fc(210,400); fc(262,400);
   S(314,400);
   fc(366,400); fc(418,400); fc(470,400); fc(522,400);
@@ -466,10 +478,8 @@ function buildLevel11() {
 
 // ── Level 12 "Still Waters" — reveal-crumble tiles; three sections, each longer than last.
 function buildLevel12() {
-  const {S,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  const {S,RC,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
-  const RC = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-    id:tiles.length,state:'idle',timer:0,reveal:true,visible:false,warnFrames:CFG.REVEAL_CRUMBLE_WARN});
   RC(170,400); RC(210,400); RC(250,400); RC(290,400); RC(330,400);
   S(370, 400, 80, 16);
   RC(530,400); RC(570,400); RC(610,400); RC(650,400);
@@ -526,13 +536,10 @@ function buildLevel14() {
 
 // ── Level 15 "The Patience Tax" — false-safe rest in the middle; reveal-crumble either side.
 function buildLevel15() {
-  const {S,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  const {S,RC,FS,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
-  const RC = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-    id:tiles.length,state:'idle',timer:0,reveal:true,visible:false,warnFrames:CFG.REVEAL_CRUMBLE_WARN});
   RC(170,400); RC(210,400); RC(250,400); RC(290,400); RC(330,400);
-  tiles.push({type:'false-safe',x:380,y:400,w:96,h:16,id:tiles.length,
-              timer:0,dangerous:false,dangerTimer:0,_warming:false});
+  FS(380, 400, 96, 16);
   RC(496,400); RC(536,400); RC(576,400); RC(616,400); RC(656,400); RC(696,400);
   S(736, 400, 120, 16);
   G(814, 372, 32, 28);
@@ -743,13 +750,11 @@ function buildLevel24() {
 
 // ── Level 25 "Slow Burn" — crumble approach; wide false-safe trap; crumble exit.
 function buildLevel25() {
-  const {S,C,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  const {S,C,FS,G,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
   spike(120, 410, 3);
   C(168,400); C(200,400);
-  tiles.push({type:'false-safe',x:232,y:400,w:320,h:16,id:tiles.length,
-              timer:0,dangerous:false,dangerTimer:0,_warming:false,
-              fastTTL:CFG.FALSE_SAFE_FAST_TTL, fastWarn:CFG.FALSE_SAFE_FAST_WARN});
+  FS(232, 400, 320, 16, true);
   C(552,400); C(584,400);
   spike(616, 410, 2);
   S(648, 400, 160, 16);
@@ -783,11 +788,9 @@ function buildLevel26() {
 
 // ── Level 27 "Ghostwalk" — light gravity; instant-crumble ascending chain; no margin to pause.
 function buildLevel27() {
-  const {S,G,grav,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  const {S,ic,G,grav,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   grav(0, 0, 560, 820, 0.45, 1.25);
   S(40, 720, 200, 16);
-  const ic = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-    id:tiles.length,state:'idle',timer:0,instantCrumble:true});
   ic(60, 640); ic(160, 570); ic(80, 500); ic(200, 440);
   ic(80, 370); ic(220, 310); ic(80, 250); ic(200, 190);
   ic(100, 130);
@@ -800,14 +803,11 @@ function buildLevel27() {
 
 // ── Level 28 "The Patience Gauntlet" — reveal-crumble; false-safe trap; two patience triggers.
 function buildLevel28() {
-  const {S,TR,G,trig,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  const {S,TR,RC,FS,G,trig,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
   S(40, 400, 80, 16);
-  const RC = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-    id:tiles.length,state:'idle',timer:0,reveal:true,visible:false,warnFrames:CFG.REVEAL_CRUMBLE_WARN});
   RC(170,400); RC(210,400); RC(250,400); RC(290,400); RC(330,400);
   S(370,400,60,16);
-  tiles.push({type:'false-safe',x:430,y:400,w:96,h:16,id:tiles.length,
-              timer:0,dangerous:false,dangerTimer:0,_warming:false});
+  FS(430, 400, 96, 16);
   S(526,400,60,16);
   trig('G1', 556, 340, 70, 80, CFG.PATIENCE_FRAMES);
   spike(586, 410, 2);
@@ -828,7 +828,7 @@ function buildLevel28() {
 
 // ── Level 29 "Everything You Know" — five sections echoing every Phase 4 subversion, harder.
 function buildLevel29() {
-  const {S,F,I,C,SL,TP,TR,G,trig,grav,dzone,spike,
+  const {S,F,I,C,SL,TP,TR,RC,fc,ic,FS,G,trig,grav,dzone,spike,
          tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
 
   // §1 — fake bridge with hidden invisible mid-span (L5/L16 echo)
@@ -846,8 +846,6 @@ function buildLevel29() {
   spike(480,410,13);
 
   // §3 — patience bridge into reveal-crumble then deadly glow (L12/L19 echo)
-  const RC = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-    id:tiles.length,state:'idle',timer:0,reveal:true,visible:false,warnFrames:CFG.REVEAL_CRUMBLE_WARN});
   TR(820,400,32,16,'Z1');
   RC(860,400); RC(900,400); RC(940,400);
   dzone(988,375,48,38,true);
@@ -856,18 +854,12 @@ function buildLevel29() {
 
   // §4 — heavy gravity + instant crumble staircase (L18/L27 echo)
   grav(1172,0,400,480,1.9,0.66);
-  const ic = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-    id:tiles.length,state:'idle',timer:0,instantCrumble:true});
   ic(1172,400); ic(1232,380); ic(1292,360); ic(1352,360); ic(1412,380);
   S(1452,400,80,16);
   spike(1172,420,18);
 
   // §5 — false-safe then fast crumble exit (L25/L10 echo)
-  tiles.push({type:'false-safe',x:1592,y:400,w:192,h:16,id:tiles.length,
-              timer:0,dangerous:false,dangerTimer:0,_warming:false,
-              fastTTL:CFG.FALSE_SAFE_FAST_TTL, fastWarn:CFG.FALSE_SAFE_FAST_WARN});
-  const fc = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-    id:tiles.length,state:'idle',timer:0,warnFrames:CFG.CRUMBLE_WARN_FAST});
+  FS(1592, 400, 192, 16, true);
   fc(1784,400); fc(1816,400); fc(1848,400);
   S(1880,400,120,16);
   G(1958,372,32,28);
@@ -880,7 +872,7 @@ function buildLevel29() {
 
 // ── Level 30 "Blindpath" — complete darkness; all mechanics echoed; pure memory and trust.
 function buildLevel30() {
-  const {S,F,C,I,G,grav,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
+  const {S,F,I,RC,fc,ic,G,grav,spike,tiles,spikes,triggers,gravityZones,dangerZones} = makeLevelParts();
 
   S(40,400,80,16);
 
@@ -897,23 +889,17 @@ function buildLevel30() {
 
   // §3 — fast crumble sprint (L10 echo)
   spike(744,410,4);
-  const fc = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-    id:tiles.length,state:'idle',timer:0,warnFrames:CFG.CRUMBLE_WARN_FAST});
   fc(812,400); fc(844,400); fc(876,400); fc(908,400);
   S(940,400,60,16);
 
   // §4 — reveal-crumble (L12 echo)
   spike(1000,410,3);
-  const RC = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-    id:tiles.length,state:'idle',timer:0,reveal:true,visible:false});
   RC(1028,400); RC(1068,400); RC(1108,400); RC(1148,400);
   S(1188,400,60,16);
 
   // §5 — light gravity ascent with instant crumble (L27 echo)
   spike(1248,410,3);
   grav(1300,0,400,480,0.50,1.20);
-  const ic = (x,y) => tiles.push({type:'crumble',x,y,w:CFG.TILE_W,h:CFG.TILE_H,
-    id:tiles.length,state:'idle',timer:0,instantCrumble:true});
   ic(1300,380); ic(1380,360); ic(1460,340); ic(1540,360); ic(1620,380);
   S(1700,400,100,16);
   G(1760,372,32,28);
