@@ -44,6 +44,15 @@ const CFG = {
   MASTER_VOL:      0.18,
 };
 
+/* ── 1b. VOLUME PERSISTENCE ──────────────────────────────────────────── */
+const VOL_KEY = 'blindpath_vol';
+(function initVolume() {
+  try {
+    const stored = localStorage.getItem(VOL_KEY);
+    if (stored !== null) CFG.MASTER_VOL = Math.max(0, Math.min(1, parseFloat(stored)));
+  } catch (_) {}
+}());
+
 /* ── 2. STATE ────────────────────────────────────────────────────────── */
 let state = {};
 let currentLevel = null;
@@ -1827,4 +1836,26 @@ document.getElementById('true-restart-btn').addEventListener('click', () => {
   if (saved && (saved.phase > 1 || saved.levelIndex > 0)) {
     continueBtn.classList.remove('hidden');
   }
+}());
+
+/* ── 20. VOLUME SLIDER ───────────────────────────────────────────────── */
+(function initVolSlider() {
+  const slider  = document.getElementById('vol-slider');
+  const icon    = document.getElementById('vol-icon');
+  if (!slider || !icon) return;
+
+  const DEFAULT_VOL = 0.18;
+
+  function applyVol(v) {
+    CFG.MASTER_VOL   = v;
+    slider.value     = v;
+    icon.textContent = v === 0 ? '♪̶' : '♪';
+    try { localStorage.setItem(VOL_KEY, String(v)); } catch (_) {}
+  }
+
+  applyVol(CFG.MASTER_VOL);
+
+  slider.addEventListener('input', () => applyVol(parseFloat(slider.value)));
+
+  icon.addEventListener('click', () => applyVol(CFG.MASTER_VOL > 0 ? 0 : DEFAULT_VOL));
 }());
